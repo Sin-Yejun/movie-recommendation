@@ -1,10 +1,11 @@
-# 최신영화 약 80여개 이상, 오래걸림
+# 최신 영화 8개
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 import time
 from selenium.webdriver.chrome.options import Options
+import json
 
 options = Options()
 options.add_argument("--headless")  # GUI 없이 실행
@@ -12,24 +13,18 @@ options.add_argument("--disable-gpu")  # GPU 가속 비활성화 (일부 환경�
 options.add_argument("--window-size=1920x1080")  # 화면 크기 설정
 
 # WebDriver 실행
-driver = webdriver.Chrome(options=options)
+driver = webdriver.Chrome()
 driver.get('https://search.naver.com/search.naver?where=nexearch&sm=top_hty&fbm=0&ie=utf8&query=%EC%98%81%ED%99%94')
-time.sleep(3)
+time.sleep(2)
 
-# 현재 페이지 번호 (1부터 시작)
-page = 1
 i = 1  # 현재 페이지 내 영화 순번
 movie_list = []  # 영화 정보를 저장할 리스트
-num = 1  # 전체 영화 순번
-
 
 while True:
     try:
-        # 제목, 출연진 가져오기
-        time.sleep(3)
         # 영화 제목 가져오기
         title = driver.find_element(By.XPATH, f'//*[@id="main_pack"]/div[3]/div[2]/div/div/div/div[1]/div[1]/div[{i}]/div[1]/div/div[1]/div/a').text.strip()
-        print(f"\n{num}번째 영화 제목: {title}")
+        print(f"\n{i}번째 영화 제목: {title}")
         
         # 출연진 가져오기
         actors = driver.find_element(By.XPATH, f'//*[@id="main_pack"]/div[3]/div[2]/div/div/div/div[1]/div[1]/div[{i}]/div[1]/div/div[2]/dl[3]/dd/span').text.strip()
@@ -38,7 +33,7 @@ while True:
         # 상세 페이지 클릭
         btn = driver.find_element(By.XPATH, f'//*[@id="main_pack"]/div[3]/div[2]/div/div/div/div[1]/div[1]/div[{i}]/div[1]/a')
         driver.execute_script("arguments[0].click();", btn)  # JavaScript로 클릭 실행
-        time.sleep(3)
+        time.sleep(1)
 
 
         # 순위, 관객 수, 실관람객 평균 평점 가져오기
@@ -49,12 +44,12 @@ while True:
         except:
             rank, audience, rating = "N/A", "N/A", "N/A"
 
-        print(f"급상승 순위: {rank}\n관객 수: {audience}\n평균평점: {rating}")
+        print(f"급상승 순위: {rank}위\n관객 수: {audience}만명\n평균평점: {rating}")
 
         # 개봉 정보 클릭
         btn = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[1]/div[3]/div/div/ul/li[2]/a')
         btn.click()
-        time.sleep(3)
+        time.sleep(1)
 
         # 개봉일, 연령 제한, 장르, 국가, 상영시간, 줄거리 가져오기
         try:
@@ -67,8 +62,8 @@ while True:
         except:
             release_date, grade, genre, country, running_time, stroy = "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"
 
-        print(f"개봉일: {release_date}, 연령 제한: {grade}, 장르: {genre}, 국가: {country}, 상영시간: {running_time}")
-        print(f"줄거리: {stroy}")
+        # print(f"개봉일: {release_date}\n연령 제한: {grade}\n장르: {genre}\n국가: {country}\n 상영시간: {running_time}")
+        # print(f"줄거리: {stroy}")
 
         # 영화 정보를 딕셔너리로 저장
         movie_info = {
@@ -89,43 +84,18 @@ while True:
         time.sleep(0.5)
         driver.back()
         time.sleep(0.5)
-        if page >= 2:
-            for _ in range(page-1):
-                next_button_xpath = '//*[@id="main_pack"]/div[3]/div[2]/div/div/div/div[1]/div[4]/div/a[2]'
-                try:
-                    next_button = driver.find_element(By.XPATH, next_button_xpath)
-                    if next_button.get_attribute("aria-disabled") == "false":
-                        ActionChains(driver).move_to_element(next_button).click().perform()
-                        time.sleep(3)
-                    else:
-                        print("더 이상 페이지가 없습니다. 크롤링을 종료합니다.")
-                        break
-                except:
-                    print("다음 페이지 버튼을 찾을 수 없습니다. 크롤링을 종료합니다.")
-                    break
-
-
         # 다음 영화로 이동
         i += 1
-        num += 1
-        print(i, page)
     except:
-        # 다음 페이지 버튼 처리
-        next_button_xpath = '//*[@id="main_pack"]/div[3]/div[2]/div/div/div/div[1]/div[4]/div/a[2]'
-        try:
-            next_button = driver.find_element(By.XPATH, next_button_xpath)
-            if next_button.get_attribute("aria-disabled") == "false":
-                ActionChains(driver).move_to_element(next_button).click().perform()
-                time.sleep(3)
-                i = 1  # 다시 첫 번째 요소부터 검색
-                page += 1
-            else:
-                print("더 이상 페이지가 없습니다. 크롤링을 종료합니다.")
-                break
-        except:
-            print("다음 페이지 버튼을 찾을 수 없습니다. 크롤링을 종료합니다.")
-            break
+        break
 
 # 결과 출력
 print("\n크롤링 완료. 총 수집한 영화 개수:", len(movie_list))
 driver.quit()
+
+# 크롤링한 영화 데이터를 JSON 파일로 저장
+with open("movies.json", "w", encoding="utf-8") as f:
+    json.dump(movie_list, f, ensure_ascii=False, indent=4)
+
+print("영화 데이터가 movies.json 파일로 저장되었습니다.")
+
