@@ -6,6 +6,7 @@ from openai import OpenAI
 import json
 import pandas as pd
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 app = FastAPI()
 
@@ -21,16 +22,19 @@ app.add_middleware(
 # OpenAI API 클라이언트
 client = OpenAI()
 
+# 현재 파일의 디렉토리 경로
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # FAISS 인덱스 불러오기
-index = faiss.read_index("db/movie_index.faiss")
-movie_titles = np.load("db/movie_titles.npy")
+index = faiss.read_index(os.path.join(BASE_DIR, "db/movie_index.faiss"))
+movie_titles = np.load(os.path.join(BASE_DIR, "db/movie_titles.npy"))
 
 # JSON 영화 정보 불러오기
-with open("db/movies.json", "r", encoding="utf-8") as f:
+with open(os.path.join(BASE_DIR, "db/movies.json"), "r", encoding="utf-8") as f:
     movies = json.load(f)
 
 # CSV 리뷰 데이터 불러오기
-df = pd.read_csv("db/movie_reviews.csv", encoding="utf-8")
+df = pd.read_csv(os.path.join(BASE_DIR, "db/movie_reviews.csv"), encoding="utf-8")
 
 
 class QueryModel(BaseModel):
