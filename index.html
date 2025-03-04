@@ -6,47 +6,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AJAX Test Page</title>
     <script>
-let isSending = false;
-let controller = new AbortController();
+        let isSending = false;
+        let controller = new AbortController();
 
-async function sendMessage() {
-    const url = "http://172.207.35.34:8001/stream_chat/";
-    const message = document.getElementById("message").value;
-    const data = { content: message };
+        async function sendMessage() {
+            const url = "http://127.0.0.1:8000/chat/";;
+            const message = document.getElementById("message").value;
+            const data = { content: message };
 
-    const toggleButton = document.getElementById("toggleButton");
-    const responseContainer = document.getElementById("response");
+            const toggleButton = document.getElementById("toggleButton");
+            const responseContainer = document.getElementById("response");
 
-    toggleButton.textContent = 'Send'; // Always set to 'Send'
+            toggleButton.textContent = 'Send'; // Always set to 'Send'
 
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
 
-        if (!response.ok) {
-            throw new Error('Network response was not ok ' + response.statusText);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok ' + response.statusText);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+
+                responseContainer.innerHTML = ''; // Clear previous responses
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    responseContainer.innerHTML += chunk;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                responseContainer.innerHTML = 'Error sending. Try again later.';
+            }
         }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-
-        responseContainer.innerHTML = ''; // Clear previous responses
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const chunk = decoder.decode(value, { stream: true });
-            responseContainer.innerHTML += chunk;
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        responseContainer.innerHTML = 'Error sending. Try again later.';
-    }
-}
 
 
         let currentIndex = 0;
@@ -119,18 +119,24 @@ async function sendMessage() {
             background-color: #F5F5F7;
             color: #1D1D1F;
         }
+
         footer {
             margin-left: 10px;
             display: flex;
             flex-direction: column;
             bottom: 10px;
             right: 10px;
-            font-size: 10px; /* 폰트 크기를 더 작게 설정 */
-            color: #888888; /* 회색으로 설정 */
+            font-size: 10px;
+            /* 폰트 크기를 더 작게 설정 */
+            color: #888888;
+            /* 회색으로 설정 */
             text-align: left;
-            line-height: 0.1; /* 줄간격을 좁게 설정 */
-            font-family: 'Jalnan', -apple-system, sans-serif; /* 글씨체 변경 */
+            line-height: 0.1;
+            /* 줄간격을 좁게 설정 */
+            font-family: 'Jalnan', -apple-system, sans-serif;
+            /* 글씨체 변경 */
         }
+
         #logo {
             font-size: 36pt;
             /* Reduced font size */
@@ -424,4 +430,5 @@ async function sendMessage() {
     <p>경상국립대학교 정아윤</p>
 </footer>
 </body>
+
 </html>
