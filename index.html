@@ -33,7 +33,7 @@
 
         async function loadMovies() {
             try {
-                const response = await fetch('./db/movies.json');  // movies.json 불러오기
+                const response = await fetch('src/db/movies.json');  // movies.json 불러오기
                 const movies = await response.json();
 
                 const gallery = document.querySelector('.image-gallery');
