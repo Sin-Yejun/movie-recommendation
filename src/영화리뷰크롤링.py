@@ -77,8 +77,12 @@ while True:
                     driver.find_element(By.XPATH, f'{scroll_xpath}/ul/li[{i}]/div[2]/div/button').click()
                 except:
                     pass
-
-                items = driver.find_elements(By.XPATH, f'{scroll_xpath}/ul/li[{i}]/div[2]/div/span')
+       
+                if category == '평론가':
+                    items = driver.find_elements(By.XPATH, f'{scroll_xpath}/ul/li[{i}]/div[3]/span')
+                else:
+                    items = driver.find_elements(By.XPATH, f'{scroll_xpath}/ul/li[{i}]/div[2]/div/span')
+                
                 scores = driver.find_elements(By.XPATH, f'{scroll_xpath}/ul/li[{i}]/div[1]/div/div[2]')
                 cnt += 1
                 for j in items:
