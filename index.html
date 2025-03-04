@@ -4,62 +4,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Filmio</title>
+    <title>Filmio - 영화 추천 플랫폼</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/12.2.0/markdown-it.min.js"></script>
     <script>
         async function sendMessage() {
             const url = "http://127.0.0.1:8000/chat";
             const message = document.getElementById("message").value;
             const responseContainer = document.getElementById("response");
+            const submitButton = document.getElementById("submit-button");
+
+            submitButton.disabled = true; // 버튼 비활성화
+            submitButton.style.opacity = "0.5"; // 버튼 흐리게
+            submitButton.innerText = "생성 중...";
 
             try {
                 const response = await fetch(url, {
-                    method: "GET",
+                    method: "POST",
+                    mode: "cors",
                     headers: {
                         "Content-Type": "application/json"
-                    }
+                    },
+                    body: JSON.stringify({ query: message })
                 });
 
                 if (!response.ok) {
                     throw new Error("Network response was not ok " + response.statusText);
                 }
 
-                const text = await response.text();
+                const data = await response.json();
+                let text = data.response || "응답이 없습니다.";
+                text = text
+                    .replace(/### (.*?)(\n|$)/g, '<h3>$1</h3>$2')  // 가장 작은 제목 먼저 변환
+                    .replace(/## (.*?)(\n|$)/g, '<h2>$1</h2>$2')   // h2 변환
+                    .replace(/# (.*?)(\n|$)/g, '<h1>$1</h1>$2')    // h1 변환
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // **굵은 글씨** 변환
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/\n/g, '<br>');  // 개행 변환
                 responseContainer.innerHTML = text;
             } catch (error) {
                 console.error("Error:", error);
-                responseContainer.innerHTML = "Error sending. Try again later.";
+                responseContainer.innerHTML = "Error: 응답을 가져올 수 없습니다.";
+            } finally {
+                submitButton.disabled = false; // 버튼 다시 활성화
+                submitButton.style.opacity = "1";
+                submitButton.innerText = "🎥 답변 생성";
             }
         }
 
         async function loadMovies() {
             try {
-                const response = await fetch('src/db/movies.json');  // movies.json 불러오기
+                const response = await fetch('src/db/movies.json');
                 const movies = await response.json();
 
                 const gallery = document.querySelector('.image-gallery');
-                gallery.innerHTML = ''; // 기존 내용 삭제
+                gallery.innerHTML = '';
 
                 movies.forEach((movie, index) => {
                     const movieItem = document.createElement('div');
                     movieItem.classList.add('image-item');
-                    if (index >= 4) movieItem.style.display = "none"; // 첫 4개만 보이도록 설정
+                    if (index >= 4) movieItem.style.display = "none";
 
                     movieItem.innerHTML = `
-                        <img src="${movie.영화포스터}" alt="${movie.제목}">
+                        <img src="${movie.영화포스터}" alt="${movie.제목}" onclick="setMovieQuery('${movie.제목}')">
                         <p>${movie.제목}</p>
                     `;
-
                     gallery.appendChild(movieItem);
                 });
-
                 showSlides(0);
             } catch (error) {
                 console.error("Error loading movies:", error);
             }
         }
 
-        let currentIndex = 0;
+        function setMovieQuery(title) {
+            document.getElementById("message").value = `${title}에 대한 정보 알려줘.`;
+        }
 
+        let currentIndex = 0;
         function showSlides(index) {
             const slides = document.querySelectorAll('.image-item');
             const totalSlides = slides.length;
@@ -88,168 +110,41 @@
 
         document.addEventListener('DOMContentLoaded', loadMovies);
     </script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #F5F5F7;
-            text-align: center;
-        }
-
-        form {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            margin: 20px;
-            padding: 20px;
-            background-color: #FFFFFF;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            border-radius: 20px;
-        }
-
-        label {
-            font-size: 16px;
-            margin-bottom: 5px;
-        }
-
-        input[type="text"] {
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid #D2D2D7;
-            border-radius: 12px;
-            width: 60%;
-            margin-bottom: 10px;
-        }
-
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            color: #FFFFFF;
-            background-color: #007AFF;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: background-color 0.2s ease-in-out;
-        }
-
-        button:hover {
-            background-color: #005BB5;
-        }
-
-        h2 {
-            text-align: center;
-            color: #1D1D1F;
-            margin-top: 20px;
-        }
-
-        pre {
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            max-width: 80%;
-            margin: 10px auto;
-            padding: 15px;
-            background-color: #FFFFFF;
-            border: 1px solid #D2D2D7;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            font-size: 16px;
-            line-height: 1.5;
-        }
-
-        .slider-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin: 20px 0;
-        }
-
-        .slider-title {
-            font-size: 20px;
-            margin-bottom: 10px;
-        }
-
-        .slider-content {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .image-gallery {
-            display: flex;
-            justify-content: space-around;
-            flex-wrap: nowrap;
-            width: 90%;
-        }
-
-        .image-item {
-            text-align: center;
-            margin: 0 5px;
-            transition: transform 0.3s;
-            display: none;
-        }
-
-        .image-item img {
-            max-width: 150px;
-            height: auto;
-            border-radius: 20px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-
-        .image-item p {
-            margin: 5px 0 0;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .image-item:hover {
-            transform: translateY(-10px);
-        }
-
-        .slider-button {
-            background-color: #007AFF;
-            color: #FFFFFF;
-            border: none;
-            border-radius: 12px;
-            padding: 10px;
-            margin: 0 10px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.2s ease-in-out;
-        }
-
-        .slider-button:hover {
-            background-color: #005BB5;
-        }
-    </style>
 </head>
 
 <body>
-    <section id="logo">
+    <header>
         <h1>Filmio</h1>
+        <div class="cinema-links">
+            <a href="https://www.cgv.co.kr/" target="_blank"><img src="src/img/cgv_logo.png" alt="CGV"></a>
+            <a href="https://www.lottecinema.co.kr/" target="_blank"><img src="src/img/lotte_logo.png" alt="롯데시네마"></a>
+            <a href="https://www.megabox.co.kr/" target="_blank"><img src="src/img/megabox_logo.png" alt="메가박스"></a>
+        </div>
+    </header>
+
+    <section class="info-container">
+        <h2>🎬 영화 추천 AI</h2>
+        <p>관심 있는 영화에 대해 질문하세요! 줄거리, 리뷰, 출연진 정보를 제공합니다.</p>
     </section>
 
-    <div class="info-container">
-        <p>궁금한 영화가 있나요?</p>
-        <p>줄거리, 평론가와 관객들의 솔직한 리뷰, 출연진 등 모든 정보를 물어보세요!!</p>
-    </div>
-
     <form onsubmit="event.preventDefault(); sendMessage();">
-        <label for="message">질문을 입력하세요:</label>
-        <input type="text" id="message" name="message" value="영화 추천해줘." required>
-        <button type="submit">Send</button>
+        <input type="text" id="message" name="message" placeholder="궁금한 영화를 입력하세요..." required>
+        <button type="submit" id="submit-button">🎥 답변 생성</button>
     </form>
 
-    <h2>답변</h2>
-    <pre id="response"></pre>
+    <section class="response-container">
+        <h2>답변</h2>
+        <div id="response"></div>
+    </section>
 
-    <div class="slider-container">
-        <div class="slider-title">현재 상영 영화</div>
+    <section class="slider-container">
+        <h2>현재 상영 중인 영화</h2>
         <div class="slider-content">
             <button class="slider-button" onclick="prevSlides()">&#10094;</button>
             <div class="image-gallery"></div>
             <button class="slider-button" onclick="nextSlides()">&#10095;</button>
         </div>
-    </div>
+    </section>
 </body>
 
 </html>

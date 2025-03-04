@@ -1,0 +1,167 @@
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #F9FAFC;
+    text-align: center;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+header {
+    display: flex;
+    justify-content: center;
+    /* 가운데 정렬 */
+    align-items: center;
+    padding: 15px 20px;
+    background-color: #007AFF;
+    color: white;
+    position: relative;
+    /* 로고를 오른쪽에 유지하기 위해 */
+}
+
+.cinema-links {
+    position: absolute;
+    right: 20px;
+    /* 오른쪽 상단 배치 */
+    display: flex;
+    gap: 10px;
+}
+
+.cinema-links a img {
+    width: 60px;
+    /* 정사각형 크기 */
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+    transition: transform 0.2s;
+}
+
+.cinema-links a img:hover {
+    transform: scale(1.1);
+}
+
+
+.info-container {
+    margin: 30px auto;
+    padding: 20px;
+    max-width: 600px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+form {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    margin: 20px auto;
+    padding: 20px;
+    max-width: 500px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #D2D2D7;
+    border-radius: 8px;
+    outline: none;
+    transition: border 0.3s ease;
+}
+
+input[type="text"]:focus {
+    border: 1px solid #007AFF;
+}
+
+button {
+    padding: 12px 20px;
+    font-size: 16px;
+    color: #FFFFFF;
+    background-color: #007AFF;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background-color 0.2s ease-in-out;
+}
+
+button:hover {
+    background-color: #005BB5;
+}
+
+.response-container {
+    margin: 20px auto;
+    padding: 20px;
+    max-width: 600px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+#response {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 16px;
+    text-align: left;
+}
+
+.slider-container {
+    margin: 40px auto;
+    max-width: 800px;
+}
+
+.slider-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.image-gallery {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    overflow: hidden;
+    width: 90%;
+}
+
+.image-item {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    transition: transform 0.3s ease-in-out;
+}
+
+.image-item img {
+    width: 150px;
+    height: 220px;
+    object-fit: cover;
+}
+
+.image-item p {
+    margin: 8px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.image-item:hover {
+    transform: scale(1.05);
+}
+
+.slider-button {
+    background-color: #007AFF;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.slider-button:hover {
+    background-color: #005BB5;
+}
