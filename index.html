@@ -4,50 +4,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AJAX Test Page</title>
+    <title>Filmio</title>
     <script>
-        let isSending = false;
-        let controller = new AbortController();
-
         async function sendMessage() {
-            const url = "http://127.0.0.1:8000/chat/";;
+            const url = "http://127.0.0.1:8000/chat";
             const message = document.getElementById("message").value;
-            const data = { content: message };
-
-            const toggleButton = document.getElementById("toggleButton");
             const responseContainer = document.getElementById("response");
-
-            toggleButton.textContent = 'Send'; // Always set to 'Send'
 
             try {
                 const response = await fetch(url, {
-                    method: 'POST',
+                    method: "GET",
                     headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data)
+                        "Content-Type": "application/json"
+                    }
                 });
 
                 if (!response.ok) {
-                    throw new Error('Network response was not ok ' + response.statusText);
+                    throw new Error("Network response was not ok " + response.statusText);
                 }
 
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder('utf-8');
-
-                responseContainer.innerHTML = ''; // Clear previous responses
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    const chunk = decoder.decode(value, { stream: true });
-                    responseContainer.innerHTML += chunk;
-                }
+                const text = await response.text();
+                responseContainer.innerHTML = text;
             } catch (error) {
-                console.error('Error:', error);
-                responseContainer.innerHTML = 'Error sending. Try again later.';
+                console.error("Error:", error);
+                responseContainer.innerHTML = "Error sending. Try again later.";
             }
         }
 
+        async function loadMovies() {
+            try {
+                const response = await fetch('./db/movies.json');  // movies.json 불러오기
+                const movies = await response.json();
+
+                const gallery = document.querySelector('.image-gallery');
+                gallery.innerHTML = ''; // 기존 내용 삭제
+
+                movies.forEach((movie, index) => {
+                    const movieItem = document.createElement('div');
+                    movieItem.classList.add('image-item');
+                    if (index >= 4) movieItem.style.display = "none"; // 첫 4개만 보이도록 설정
+
+                    movieItem.innerHTML = `
+                        <img src="${movie.영화포스터}" alt="${movie.제목}">
+                        <p>${movie.제목}</p>
+                    `;
+
+                    gallery.appendChild(movieItem);
+                });
+
+                showSlides(0);
+            } catch (error) {
+                console.error("Error loading movies:", error);
+            }
+        }
 
         let currentIndex = 0;
 
@@ -77,95 +86,13 @@
             showSlides(currentIndex - 4);
         }
 
-        document.addEventListener('DOMContentLoaded', () => showSlides(currentIndex));
-    </script>
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            function updateDateTime() {
-                const dateTimeElement = document.getElementById('current-date-time');
-                const currentDate = new Date();
-
-                const year = currentDate.getFullYear();
-                const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-                const day = String(currentDate.getDate()).padStart(2, '0');
-                const hours = String(currentDate.getHours()).padStart(2, '0');
-                const minutes = String(currentDate.getMinutes()).padStart(2, '0');
-                const seconds = String(currentDate.getSeconds()).padStart(2, '0');
-
-                const formattedDateTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-
-                dateTimeElement.textContent = formattedDateTime;
-            }
-
-            // Update the date and time every second
-            setInterval(updateDateTime, 1000);
-
-            // Initial call to display the date and time immediately on page load
-            updateDateTime();
-        });
+        document.addEventListener('DOMContentLoaded', loadMovies);
     </script>
     <style>
-        @font-face {
-            font-family: 'Jalnan';
-            src: url('fonts/Jalnan2TTF.ttf') format('truetype');
-            font-weight: normal;
-            font-style: normal;
-        }
-
         body {
-            font-family: 'Jalnan', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            margin: 0;
-            padding: 0;
+            font-family: Arial, sans-serif;
             background-color: #F5F5F7;
-            color: #1D1D1F;
-        }
-
-        footer {
-            margin-left: 10px;
-            display: flex;
-            flex-direction: column;
-            bottom: 10px;
-            right: 10px;
-            font-size: 10px;
-            /* 폰트 크기를 더 작게 설정 */
-            color: #888888;
-            /* 회색으로 설정 */
-            text-align: left;
-            line-height: 0.1;
-            /* 줄간격을 좁게 설정 */
-            font-family: 'Jalnan', -apple-system, sans-serif;
-            /* 글씨체 변경 */
-        }
-
-        #logo {
-            font-size: 36pt;
-            /* Reduced font size */
-            color: #007AFF;
             text-align: center;
-            margin: 20px 0;
-            /* Reduced margin */
-        }
-
-        .datetime-container {
-            display: flex;
-            flex-direction: column;
-            top: 10px;
-            left: 10px;
-            font-size: 18px;
-            padding: 5px;
-            /* Reduced padding */
-            border-radius: 10px;
-        }
-
-        .datetime-container p {
-            margin: 0;
-        }
-
-        .info-container {
-            color: #8a8a8a;
-            text-align: center;
-            margin: 10px;
-            /* Reduced margin */
         }
 
         form {
@@ -173,10 +100,8 @@
             justify-content: center;
             align-items: center;
             flex-direction: column;
-            margin: 10px;
-            /* Reduced margin */
-            padding: 10px;
-            /* Reduced padding */
+            margin: 20px;
+            padding: 20px;
             background-color: #FFFFFF;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             border-radius: 20px;
@@ -184,44 +109,27 @@
 
         label {
             font-size: 16px;
-            /* Reduced font size */
             margin-bottom: 5px;
-            /* Reduced margin */
-            color: #1D1D1F;
         }
 
         input[type="text"] {
             padding: 10px;
-            /* Reduced padding */
             font-size: 16px;
-            /* Reduced font size */
             border: 1px solid #D2D2D7;
             border-radius: 12px;
             width: 60%;
             margin-bottom: 10px;
-            /* Reduced margin */
-            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
-            transition: all 0.2s ease-in-out;
-        }
-
-        input[type="text"]:focus {
-            border-color: #007AFF;
-            box-shadow: 0 0 8px rgba(0, 113, 227, 0.3);
-            outline: none;
         }
 
         button {
             padding: 10px 20px;
-            /* Reduced padding */
             font-size: 16px;
-            /* Reduced font size */
             color: #FFFFFF;
             background-color: #007AFF;
             border: none;
             border-radius: 12px;
             cursor: pointer;
             transition: background-color 0.2s ease-in-out;
-            box-shadow: 0 2px 10px rgba(0, 113, 227, 0.2);
         }
 
         button:hover {
@@ -232,7 +140,6 @@
             text-align: center;
             color: #1D1D1F;
             margin-top: 20px;
-            /* Reduced margin */
         }
 
         pre {
@@ -241,34 +148,24 @@
             max-width: 80%;
             margin: 10px auto;
             padding: 15px;
-            /* padding 값을 줄여서 간격을 좁힘 */
             background-color: #FFFFFF;
             border: 1px solid #D2D2D7;
             border-radius: 10px;
-            /* border-radius 값을 줄여서 컴팩트하게 */
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             font-size: 16px;
-            /* 폰트 크기 증가 */
             line-height: 1.5;
-            /* 줄 간격을 넉넉하게 */
-            color: #1D1D1F;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
 
         .slider-container {
             display: flex;
             flex-direction: column;
             align-items: center;
-            margin: 10px 0;
-            /* Reduced margin */
+            margin: 20px 0;
         }
 
         .slider-title {
             font-size: 20px;
-            /* Reduced font size */
             margin-bottom: 10px;
-            /* Reduced margin */
-            color: #1D1D1F;
         }
 
         .slider-content {
@@ -281,15 +178,12 @@
             display: flex;
             justify-content: space-around;
             flex-wrap: nowrap;
-
-            overflow: visible;
             width: 90%;
         }
 
         .image-item {
             text-align: center;
             margin: 0 5px;
-            /* Reduced margin */
             transition: transform 0.3s;
             display: none;
         }
@@ -299,25 +193,16 @@
             height: auto;
             border-radius: 20px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            transition: box-shadow 0.3s;
         }
 
         .image-item p {
             margin: 5px 0 0;
-            /* Reduced margin */
             font-size: 12px;
-            /* Reduced font size */
             font-weight: 500;
-            color: #1D1D1F;
-        }
-
-        .image-item:hover img {
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
         }
 
         .image-item:hover {
             transform: translateY(-10px);
-            overflow: visible;
         }
 
         .slider-button {
@@ -326,109 +211,45 @@
             border: none;
             border-radius: 12px;
             padding: 10px;
-            /* Reduced padding */
             margin: 0 10px;
-            /* Reduced margin */
             cursor: pointer;
             font-size: 16px;
-            /* Reduced font size */
             transition: background-color 0.2s ease-in-out;
-            box-shadow: 0 2px 10px rgba(0, 113, 227, 0.2);
         }
 
         .slider-button:hover {
             background-color: #005BB5;
         }
     </style>
-    <script>
-        function setMessage(message) {
-            document.getElementById('message').value = message;
-        }
-
-        document.addEventListener('DOMContentLoaded', function () {
-            const images = document.querySelectorAll('.image-item');
-            images.forEach(image => {
-                image.addEventListener('click', function () {
-                    const imageText = this.querySelector('p').textContent;
-                    setMessage(`${imageText}에 대해 알려줘.`);
-                });
-            });
-        });
-    </script>
 </head>
 
 <body>
-    <div class="datetime-container">
-        <p>Today : <span id="current-date-time"></span></p>
-    </div>
-    <section id="logo" class="fade-down">
-        <p class="logo" href="#">Filmio</p>
+    <section id="logo">
+        <h1>Filmio</h1>
     </section>
+
     <div class="info-container">
         <p>궁금한 영화가 있나요?</p>
-        <p>줄거리, 평론가와 관객들의 솔직한 리뷰, 출연진 등 모든 정보 것을 물어보세요!!</p>
+        <p>줄거리, 평론가와 관객들의 솔직한 리뷰, 출연진 등 모든 정보를 물어보세요!!</p>
     </div>
-    <form onsubmit="event.preventDefault(); sendMessage();">
-        <label for="message">
-            < 아래에 질문을 적어주세요.>
-        </label>
-        <input type="text" id="message" name="message" value="영화 추천해줘." required>
-        <button type="submit" id="toggleButton">Send</button>
 
+    <form onsubmit="event.preventDefault(); sendMessage();">
+        <label for="message">질문을 입력하세요:</label>
+        <input type="text" id="message" name="message" value="영화 추천해줘." required>
+        <button type="submit">Send</button>
     </form>
-    <h2>
-        < 답변>
-    </h2>
+
+    <h2>답변</h2>
     <pre id="response"></pre>
+
     <div class="slider-container">
         <div class="slider-title">현재 상영 영화</div>
         <div class="slider-content">
             <button class="slider-button" onclick="prevSlides()">&#10094;</button>
-            <div class="image-gallery">
-                <div class="image-item">
-                    <img src="img/인사이드아웃2.jpg" alt="Image 1">
-                    <p>인사이드 아웃 2</p>
-                </div>
-                <div class="image-item">
-                    <img src="img/탈주.jpg" alt="Image 2">
-                    <p>탈주</p>
-                </div>
-                <div class="image-item">
-                    <img src="img/하이재킹.jpg" alt="Image 3">
-                    <p>하이재킹</p>
-                </div>
-                <div class="image-item">
-                    <img src="img/핸섬가이즈.jpg" alt="Image 4">
-                    <p>핸섬 가이즈</p>
-                </div>
-                <div class="image-item">
-                    <img src="img/이매큘레이트.jpg" alt="Image 5">
-                    <p>이매큘레이트</p>
-                </div>
-                <div class="image-item">
-                    <img src="img/플라이미투더문.jpg" alt="Image 6">
-                    <p>플라이 미 투 더 문</p>
-                </div>
-                <div class="image-item">
-                    <img src="img/탈출.jpg" alt="Image 7">
-                    <p>탈출</p>
-                </div>
-                <div class="image-item">
-                    <img src="img/코난.jpg" alt="Image 8">
-                    <p>코난</p>
-                </div>
-            </div>
+            <div class="image-gallery"></div>
             <button class="slider-button" onclick="nextSlides()">&#10095;</button>
         </div>
     </div>
-</body>
-<footer>
-    <p>만든이</p>
-    <p>한동대학교 신예준</p>
-    <p>전북대학교 김현수</p>
-    <p>숙명여자대학교 류효림</p>
-    <p>경상국립대학교 정아윤</p>
-</footer>
 </body>
 
 </html>
