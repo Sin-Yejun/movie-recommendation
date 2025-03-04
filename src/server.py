@@ -12,9 +12,9 @@ app = FastAPI()
 # 🔹 CORS 설정 추가 (보안 설정 가능)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 특정 도메인만 허용 가능 (예: ["http://localhost:3000"])
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # 모든 HTTP 메서드 허용 (GET, POST 등)
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
