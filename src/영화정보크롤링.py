@@ -30,6 +30,10 @@ while True:
         actors = driver.find_element(By.XPATH, f'//*[@id="main_pack"]/div[3]/div[2]/div/div/div/div[1]/div[1]/div[{i}]/div[1]/div/div[2]/dl[3]/dd/span').text.strip()
         print(f"출연진: {actors}")
 
+        img_element = driver.find_element(By.XPATH, f'//*[@id="m_dss_movie_img{i-1}"]')
+        img_src = img_element.get_attribute("src")
+        print(f"영화src: {img_src}")
+                                      
         # 상세 페이지 클릭
         btn = driver.find_element(By.XPATH, f'//*[@id="main_pack"]/div[3]/div[2]/div/div/div/div[1]/div[1]/div[{i}]/div[1]/a')
         driver.execute_script("arguments[0].click();", btn)  # JavaScript로 클릭 실행
@@ -75,7 +79,8 @@ while True:
             "관객수": audience+"만명",
             "관람객 평점": rating,
             "출연진": actors,
-            "줄거리": stroy
+            "줄거리": stroy,
+            "영화포스터":img_src
         }
         movie_list.append(movie_info)
 
@@ -94,7 +99,7 @@ print("\n크롤링 완료. 총 수집한 영화 개수:", len(movie_list))
 driver.quit()
 
 # 크롤링한 영화 데이터를 JSON 파일로 저장
-with open("movies.json", "w", encoding="utf-8") as f:
+with open("db/movies.json", "w", encoding="utf-8") as f:
     json.dump(movie_list, f, ensure_ascii=False, indent=4)
 
 print("영화 데이터가 movies.json 파일로 저장되었습니다.")
