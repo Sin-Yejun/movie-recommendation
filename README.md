@@ -1,7 +1,7 @@
 # 🎬 프로젝트 개요
 
 ## 🚀 배포 사이트  
-🔗 [Filmio 바로가기](https://movie-recommendation-1-w6i0.onrender.com/)  
+🔗 [Filmio 바로가기](https://sin-yejun.github.io/movie-recommendation)
 
 ## 🎥 프로젝트명: **Filmio**  
 **나만의 AI 영화 비서**  
