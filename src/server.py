@@ -21,8 +21,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+api_key = os.getenv("OPENAI_API_KEY")
 # OpenAI API 클라이언트
-client = OpenAI()
+client = OpenAI(api_key = api_key)
 
 # 현재 파일의 디렉토리 경로
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
