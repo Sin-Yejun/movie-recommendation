@@ -15,21 +15,25 @@ def get_embedding(text):
     return response.data[0].embedding
 
 # JSON 영화 정보 불러오기
-with open("movies.json", "r", encoding="utf-8") as f:
+with open("src/db/movies.json", "r", encoding="utf-8") as f:
     movies = json.load(f)
 
 # CSV 리뷰 데이터 불러오기
-df = pd.read_csv("movie_reviews.csv", encoding="utf-8")
+df = pd.read_csv("src/db/movie_reviews.csv", encoding="utf-8")
 
 # 영화별 임베딩 생성
 movie_texts = [f"{m['제목']} {m['장르']} {m['줄거리']}" for m in movies]
 
 movie_embeddings = np.array([get_embedding(text) for text in movie_texts], dtype=np.float32)
 
-# FAISS 인덱스 생성 (128차원, cosine similarity)
+# FAISS 인덱스 생성 (1536차원, cosine similarity)
 index = faiss.IndexFlatL2(1536)  # OpenAI 임베딩은 1536차원
 index.add(movie_embeddings)
 
 # 저장
-faiss.write_index(index, "movie_index.faiss")
-np.save("movie_titles.npy", np.array([m["제목"] for m in movies]))
+faiss.write_index(index, "src/db/movie_index.faiss")
+
+np.save("src/db/movie_titles.npy", np.array([m["제목"] for m in movies]))
+
+# CSV 리뷰 데이터를 NumPy 배열로 저장 (빠른 로드 가능)
+np.save("src/db/movie_reviews.npy", df.to_numpy(), allow_pickle=True)

@@ -108,9 +108,9 @@ while True:
         break
 
 # 데이터 프레임 생성
-df = pd.DataFrame(reviews, columns=['영화명', '작성자유형', '평점', '리뷰'])
+df = pd.DataFrame(reviews, columns=['제목', '작성자유형', '평점', '리뷰'])
 
 # CSV 파일로 저장
-df.to_csv('movie_reviews.csv', index=False, encoding='utf-8-sig')
+df.to_csv('src/db/movie_reviews.csv', index=False, encoding='utf-8-sig')
 
 print("CSV 파일 저장 완료: movie_reviews.csv")

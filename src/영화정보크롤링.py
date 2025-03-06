@@ -99,7 +99,7 @@ print("\n크롤링 완료. 총 수집한 영화 개수:", len(movie_list))
 driver.quit()
 
 # 크롤링한 영화 데이터를 JSON 파일로 저장
-with open("db/movies.json", "w", encoding="utf-8") as f:
+with open("src/db/movies.json", "w", encoding="utf-8") as f:
     json.dump(movie_list, f, ensure_ascii=False, indent=4)
 
 print("영화 데이터가 movies.json 파일로 저장되었습니다.")
