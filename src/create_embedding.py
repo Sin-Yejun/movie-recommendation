@@ -30,10 +30,8 @@ movie_embeddings = np.array([get_embedding(text) for text in movie_texts], dtype
 index = faiss.IndexFlatL2(1536)  # OpenAI 임베딩은 1536차원
 index.add(movie_embeddings)
 
-# 저장
+# 영화 검색용 FAISS 저장
 faiss.write_index(index, "src/db/movie_index.faiss")
-
-np.save("src/db/movie_titles.npy", np.array([m["제목"] for m in movies]))
 
 # CSV 리뷰 데이터를 NumPy 배열로 저장 (빠른 로드 가능)
 np.save("src/db/movie_reviews.npy", df.to_numpy(), allow_pickle=True)
