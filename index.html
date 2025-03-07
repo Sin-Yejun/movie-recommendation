@@ -11,59 +11,47 @@
         async function sendMessage() {
 
             const url = "https://movie-recommendation-production.up.railway.app/chat";
-            //const url = "http://127.0.0.1:8000/chat";
+            // const url = "http://127.0.0.1:8000/chat";
             const message = document.getElementById("message").value;
             const responseContainer = document.getElementById("response");
             const submitButton = document.getElementById("submit-button");
 
-            responseContainer.innerHTML = ""; // 기존 응답 초기화
             submitButton.disabled = true; // 버튼 비활성화
             submitButton.style.opacity = "0.5"; // 버튼 흐리게
             submitButton.innerText = "생성 중...";
 
-            const md = new markdownit({ html: true, breaks: false });
-            let markdownBuffer = "";
+            try {
+                const response = await fetch(url, {
+                    method: "POST",
+                    mode: "cors",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ query: message })
+                });
 
-            // EventSource를 사용한 스트리밍 처리
-            const eventSource = new EventSource(`${url}?query=${encodeURIComponent(message)}`);
-
-            eventSource.onmessage = function (event) {
-                const data = event.data;
-                if (data === "[DONE]") {
-                    eventSource.close();
-                    submitButton.disabled = false;
-                    submitButton.style.opacity = "1";
-                    submitButton.innerText = "🎥 답변 생성";
-                    responseContainer.innerHTML = md.render(markdownBuffer); // 최종 렌더링
-                } else {
-                    markdownBuffer += data;
-                    markdownBuffer = markdownBuffer.replace(/<br>/g, "\n");
-                    //console.log("현재 Markdown 버퍼:", markdownBuffer); // 디버깅용
-                    responseContainer.innerHTML = md.render(markdownBuffer);
+                if (!response.ok) {
+                    throw new Error("Network response was not ok " + response.statusText);
                 }
-            };
 
-            eventSource.onerror = function (event) {
-                console.error("EventSource 오류 발생:", event);
-                eventSource.close();
-                submitButton.disabled = false;
+                const data = await response.json();
+                let text = data.response || "응답이 없습니다.";
+                text = text
+                    .replace(/### (.*?)(\n|$)/g, '<h3>$1</h3>$2')  // 가장 작은 제목 먼저 변환
+                    .replace(/## (.*?)(\n|$)/g, '<h2>$1</h2>$2')   // h2 변환
+                    .replace(/# (.*?)(\n|$)/g, '<h1>$1</h1>$2')    // h1 변환
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // **굵은 글씨** 변환
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/\n/g, '<br>');  // 개행 변환
+                responseContainer.innerHTML = text;
+            } catch (error) {
+                console.error("Error:", error);
+                responseContainer.innerHTML = "Error: 응답을 가져올 수 없습니다.";
+            } finally {
+                submitButton.disabled = false; // 버튼 다시 활성화
                 submitButton.style.opacity = "1";
                 submitButton.innerText = "🎥 답변 생성";
-                responseContainer.innerHTML += "<p>오류가 발생했습니다. 다시 시도해주세요.</p>";
-            };
-
-
-            eventSource.onopen = function () {
-                console.log("Connection opened");
-            };
-
-            // 폼 제출 후 입력값 유지하고 이벤트 소스 닫기 방지
-            document.getElementById("message").addEventListener("change", () => {
-                eventSource.close();
-                submitButton.disabled = false;
-                submitButton.style.opacity = "1";
-                submitButton.innerText = "🎥 답변 생성";
-            });
+            }
         }
 
         async function loadMovies() {

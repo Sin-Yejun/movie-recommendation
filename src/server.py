@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Query, HTTPException
 from pydantic import BaseModel
 import faiss
 import numpy as np
@@ -8,7 +8,6 @@ import os
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import random
-from fastapi.responses import StreamingResponse
 
 # FastAPI 앱 초기화
 app = FastAPI()
@@ -109,20 +108,14 @@ def generate_ai_response(query, movie_data, reviews):
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
-        stream= True # 스트리밍 활성화
+        messages=[{"role": "user", "content": prompt}]
     )
 
-    for chunk in response:
-        if chunk.choices[0].delta.content is not None:
-            content = chunk.choices[0].delta.content
-            content = content.replace("\n","<br>")
-            yield f"data: {content}\n\n"
-    # 스트림 종료 시 명시적 신호 추가
-    yield "data: [DONE]\n\n"
+    return response.choices[0].message.content.strip()
 
-@app.get("/chat")
-async def search(query: str):
+@app.post("/chat")
+async def search(query_data: QueryModel):
+    query = query_data.query
     print(f"사용자 입력: {query}")
 
     try:
@@ -146,11 +139,11 @@ async def search(query: str):
             # 해당 영화의 리뷰 가져오기
             relevant_reviews.append(get_movie_reviews(movie_data["제목"]))
 
-        # 스트리밍 응답 반환
-        return StreamingResponse(
-            generate_ai_response(query, relevant_movies, relevant_reviews),
-            media_type="text/event-stream"
-        )
+        # AI가 답변 생성
+        response_text = generate_ai_response(query, relevant_movies, relevant_reviews)
+        print(response_text)
+
+        return {"response": response_text}
 
     except Exception as e:
         print("에러 발생:", str(e))
