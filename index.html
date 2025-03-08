@@ -42,7 +42,8 @@
                     .replace(/# (.*?)(\n|$)/g, '<h1>$1</h1>$2')    // h1 변환
                     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // **굵은 글씨** 변환
                     .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                    .replace(/\n/g, '<br>');  // 개행 변환
+                    .replace(/\n/g, '<br>')  // 개행 변환
+                    .replace(/---/g, '<hr>');  // 구분선 변환
                 responseContainer.innerHTML = text;
             } catch (error) {
                 console.error("Error:", error);
