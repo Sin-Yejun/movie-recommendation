@@ -1,11 +1,11 @@
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from openai import OpenAI
+from fastapi.middleware.cors import CORSMiddleware
 import faiss
 import numpy as np
-from openai import OpenAI
 import json
 import os
-from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import random
 
@@ -39,6 +39,7 @@ with open(os.path.join(BASE_DIR, "db/movies.json"), "r", encoding="utf-8") as f:
 # NumPy 배열로 저장된 영화 리뷰 데이터 불러오기
 movie_reviews = np.load(os.path.join(BASE_DIR, "db/movie_reviews.npy"), allow_pickle=True)
 
+# 요청 데이터 모델 정의
 class QueryModel(BaseModel):
     query: str
 
@@ -51,39 +52,38 @@ def query_embedding(text):
     return np.array(response.data[0].embedding, dtype=np.float32).reshape(1, -1)
 
 
-# 영화 제목으로 리뷰 가져오기 (청킹 적용 + 평점 균형 유지)
+# 영화 제목으로 리뷰 가져오기 (딕셔너리 반환)
 def get_movie_reviews(movie_title, max_reviews=5, max_length=300):
-
     reviews = movie_reviews[movie_reviews[:, 0] == movie_title]
+    if len(reviews) == 0:
+        return {"movie": movie_title, "reviews": []}
 
-    # 평점 기준 정렬 (내림차순)
     sorted_reviews = sorted(reviews, key=lambda x: float(x[2]), reverse=True)
-
-    # 평점 그룹 나누기
     total_reviews = len(sorted_reviews)
-    
-    if total_reviews < 5:
-        selected_reviews = sorted_reviews  # 리뷰가 5개 미만이면 전체 제공
+    if total_reviews < max_reviews:
+        selected_reviews = sorted_reviews
     else:
-        top_reviews = sorted_reviews[:total_reviews // 3]  # 상위 1/3 (긍정적)
-        mid_reviews = sorted_reviews[total_reviews // 3: 2 * total_reviews // 3]  # 중간 1/3 (보통)
-        low_reviews = sorted_reviews[2 * total_reviews // 3:]  # 하위 1/3 (부정적)
-
-        # 샘플링: 상위 2개, 중간 2개, 하위 1개 (총 5개)
+        top_reviews = sorted_reviews[:total_reviews // 3]
+        mid_reviews = sorted_reviews[total_reviews // 3: 2 * total_reviews // 3]
+        low_reviews = sorted_reviews[2 * total_reviews // 3:]
         selected_reviews = (
             random.sample(top_reviews, min(2, len(top_reviews))) +
             random.sample(mid_reviews, min(2, len(mid_reviews))) +
             random.sample(low_reviews, min(1, len(low_reviews)))
         )
 
-    # 리뷰 길이 제한 적용
-    review_texts = [
-        f"🎬 **{movie_title}**\n**작성자:** {row[1]} | **평점:** {row[2]}\n{row[3][:max_length]}..." 
-        if len(row[3]) > max_length else f"🎬 **{movie_title}**\n**작성자:** {row[1]} | **평점:** {row[2]}\n{row[3]}"
-        for row in selected_reviews
-    ]
-
-    return "\n\n".join(review_texts)
+    review_data = {
+        "movie": movie_title,
+        "reviews": [
+            {
+                "author": row[1],
+                "rating": float(row[2]),
+                "comment": row[3][:max_length] + "..." if len(row[3]) > max_length else row[3]
+            }
+            for row in selected_reviews
+        ]
+    }
+    return review_data  # JSON 문자열 대신 딕셔너리 반환
 
 # ChatGPT API를 이용해 영화 추천 및 리뷰 요약 생성
 def generate_ai_response(query, movie_data, reviews):
@@ -110,7 +110,7 @@ def generate_ai_response(query, movie_data, reviews):
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}]
     )
-
+    # print(prompt)
     return response.choices[0].message.content.strip()
 
 @app.post("/chat")
@@ -138,9 +138,11 @@ async def search(query_data: QueryModel):
 
             # 해당 영화의 리뷰 가져오기
             relevant_reviews.append(get_movie_reviews(movie_data["제목"]))
+        # 리뷰를 JSON 배열로 변환
+        reviews_json = json.dumps(relevant_reviews, ensure_ascii=False, indent=2)
 
         # AI가 답변 생성
-        response_text = generate_ai_response(query, relevant_movies, relevant_reviews)
+        response_text = generate_ai_response(query, relevant_movies, reviews_json)
         print(response_text)
 
         return {"response": response_text}
