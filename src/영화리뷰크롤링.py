@@ -36,6 +36,7 @@ while True:
         driver.execute_script("arguments[0].click();", btn)  # JavaScript로 클릭 실행
         time.sleep(1)
 
+        # 관람평 메뉴 클릭
         driver.find_element(By.XPATH, f'//*[@id="main_pack"]/div[3]/div[1]/div[3]/div/div/ul/li[5]/a').click()
         time.sleep(1)
 

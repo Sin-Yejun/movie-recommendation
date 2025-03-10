@@ -30,6 +30,7 @@ while True:
         actors = driver.find_element(By.XPATH, f'//*[@id="main_pack"]/div[3]/div[2]/div/div/div/div[1]/div[1]/div[{i}]/div[1]/div/div[2]/dl[3]/dd/span').text.strip()
         print(f"출연진: {actors}")
 
+        # 영화 포스터 이미지 가져오기
         img_element = driver.find_element(By.XPATH, f'//*[@id="m_dss_movie_img{i-1}"]')
         img_src = img_element.get_attribute("src")
         print(f"영화src: {img_src}")
