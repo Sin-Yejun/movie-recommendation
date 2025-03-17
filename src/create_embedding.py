@@ -3,6 +3,7 @@ import faiss
 import numpy as np
 import pandas as pd
 import json
+import os
 
 api_key = os.getenv("OPENAI_API_KEY")
 
