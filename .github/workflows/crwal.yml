@@ -1,0 +1,42 @@
+name: Movie Data Crawling
+
+on:
+  schedule:
+    - cron: '0 15 * * *' # UTC 15시는 KST 00시
+  workflow_dispatch: # 수동 실행 가능
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run 영화정보크롤링.py
+        run: python src/영화정보크롤링.py
+
+      - name: Run 영화리뷰크롤링.py
+        run: python src/영화리뷰크롤링.py
+
+      - name: Run create_embedding.py
+        run: python src/create_embedding.py
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "Sin-Yejun"
+          git config --global user.email "21900402@handong.ac.kr"
+          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/Sin-Yejun/church_paper.git
+          git add .
+          git commit -m '자동 크롤링 및 임베딩 업데이트' || echo "No changes to commit"
+          git push

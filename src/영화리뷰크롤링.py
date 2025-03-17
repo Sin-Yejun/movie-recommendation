@@ -13,7 +13,7 @@ options.add_argument("--disable-gpu")  # GPU 가속 비활성화 (일부 환경�
 options.add_argument("--window-size=1920x1080")  # 화면 크기 설정
 
 # WebDriver 실행
-driver = webdriver.Chrome()
+driver = webdriver.Chrome(options=options)
 driver.get('https://search.naver.com/search.naver?where=nexearch&sm=top_hty&fbm=0&ie=utf8&query=%EC%98%81%ED%99%94')
 time.sleep(2)
 
