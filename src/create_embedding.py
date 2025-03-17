@@ -4,7 +4,10 @@ import numpy as np
 import pandas as pd
 import json
 
-client = OpenAI()
+api_key = os.getenv("OPENAI_API_KEY")
+
+# OpenAI API 클라이언트
+client = OpenAI(api_key = api_key)
 
 # OpenAI 임베딩 함수
 def get_embedding(text):
