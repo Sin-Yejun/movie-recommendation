@@ -19,6 +19,15 @@ header {
     /* 로고를 오른쪽에 유지하기 위해 */
 }
 
+#date-display {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    color: #666;
+}
+
 .cinema-links {
     position: absolute;
     right: 20px;

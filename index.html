@@ -111,12 +111,31 @@
             showSlides(currentIndex - 4);
         }
 
-        document.addEventListener('DOMContentLoaded', loadMovies);
+        // date.txt 파일을 불러와 표시하는 함수
+        async function loadDate() {
+            try {
+                const response = await fetch('src/db/date.txt');
+                if (!response.ok) {
+                    throw new Error("date.txt 파일을 불러오지 못했습니다.");
+                }
+                const dateText = await response.text();
+                document.getElementById("date-display").textContent = dateText;
+            } catch (error) {
+                console.error("Error loading date:", error);
+                document.getElementById("date-display").textContent = "업데이트 날짜를 불러올 수 없습니다.";
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMovies();
+            loadDate();
+        });
     </script>
 </head>
 
 <body>
     <header>
+        <div id="date-display">날짜 로드 중...</div>
         <h1>Filmio</h1>
         <div class="cinema-links">
             <a href="https://www.cgv.co.kr/" target="_blank"><img src="src/img/cgv_logo.png" alt="CGV"></a>
