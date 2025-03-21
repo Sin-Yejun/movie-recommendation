@@ -13,7 +13,7 @@ options.add_argument("--disable-gpu")  # GPU 가속 비활성화 (일부 환경�
 options.add_argument("--window-size=1920x1080")  # 화면 크기 설정
 
 # WebDriver 실행
-driver = webdriver.Chrome(options=options)
+driver = webdriver.Chrome()
 driver.get('https://search.naver.com/search.naver?where=nexearch&sm=top_hty&fbm=0&ie=utf8&query=%EC%98%81%ED%99%94')
 time.sleep(2)
 
@@ -25,17 +25,19 @@ while True:
         # 영화 제목 가져오기
         title = driver.find_element(By.XPATH, f'//*[@id="main_pack"]/div[3]/div[2]/div/div/div/div[1]/div[1]/div[{i}]/div[1]/div/div[1]/div/a').text.strip()
         print(f"\n{i}번째 영화 제목: {title}")
-        
-        # 출연진 가져오기
-        actors = driver.find_element(By.XPATH, f'//*[@id="main_pack"]/div[3]/div[2]/div/div/div/div[1]/div[1]/div[{i}]/div[1]/div/div[2]/dl[3]/dd/span').text.strip()
-        print(f"출연진: {actors}")
 
         # 영화 포스터 이미지 가져오기
         img_element = driver.find_element(By.XPATH, f'//*[@id="m_dss_movie_img{i-1}"]')
         img_src = img_element.get_attribute("src")
         print(f"영화src: {img_src}")
-                                      
-        # 상세 페이지 클릭
+
+        try:
+            # 출연진 가져오기
+            actors = driver.find_element(By.XPATH, f'//*[@id="main_pack"]/div[3]/div[2]/div/div/div/div[1]/div[1]/div[{i}]/div[1]/div/div[2]/dl[3]/dd/span').text.strip()
+            print(f"출연진: {actors}")
+        except:
+            actors = "N/A"
+        
         btn = driver.find_element(By.XPATH, f'//*[@id="main_pack"]/div[3]/div[2]/div/div/div/div[1]/div[1]/div[{i}]/div[1]/a')
         driver.execute_script("arguments[0].click();", btn)  # JavaScript로 클릭 실행
         time.sleep(1)
@@ -43,13 +45,18 @@ while True:
 
         # 순위, 관객 수, 실관람객 평균 평점 가져오기
         try:
-            rank = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[2]/div[2]/div/div[2]/div/div/div[1]/div/div/span/em[1]').text.strip()
-            audience = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[2]/div[2]/div/div[2]/div/div/div[1]/div/div/span/em[2]').text.strip()
+            items = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[2]/div[2]/div/div[2]/div/div/div[1]/div/div/span').text.strip()
+            items = items.split('/')
+            rank = items[0]
+            audience = items[1]
             rating = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[2]/div[2]/div/div[2]/div/div/div[2]/div/div').text.strip()
         except:
-            rank, audience, rating = "N/A", "N/A", "N/A"
+            rank = "N/A"
+            audience = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[2]/div[2]/div/div[1]/dl/div[4]/dd').text.strip()
+            rating = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[2]/div[2]/div/div[1]/dl/div[3]/dd').text.strip()
 
-        print(f"급상승 순위: {rank}위\n관객 수: {audience}만명\n평균평점: {rating}")
+
+        print(f"급상승 순위: {rank}\n관객 수: {audience}\n평균평점: {rating}")
 
         # 개봉 정보 클릭
         btn = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[1]/div[3]/div/div/ul/li[2]/a')
