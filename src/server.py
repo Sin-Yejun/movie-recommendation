@@ -21,7 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-api_key = os.getenv("OPENAI_API_KEY")
+api_key = os.environ.get("OPENAI_API_KEY")
 
 # OpenAI API 클라이언트
 client = OpenAI(api_key = api_key)

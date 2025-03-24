@@ -1,5 +1,6 @@
 # 최신 영화 8개
 
+import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
@@ -8,13 +9,16 @@ from selenium.webdriver.chrome.options import Options
 import json
 
 options = Options()
-options.add_argument("--headless")  # GUI 없이 실행
-options.add_argument("--disable-gpu")  # GPU 가속 비활성화 (일부 환경에서 필요)
-options.add_argument("--window-size=1920x1080")  # 화면 크기 설정
+options.add_argument("--headless")
+options.add_argument("--no-sandbox")
+options.add_argument("--disable-dev-shm-usage")
 
-# WebDriver 실행
-driver = webdriver.Chrome()
-driver.get('https://search.naver.com/search.naver?where=nexearch&sm=top_hty&fbm=0&ie=utf8&query=%EC%98%81%ED%99%94')
+# 원격 브라우저 (Docker용)
+selenium_url = os.getenv("SELENIUM_URL", "http://localhost:4444/wd/hub")
+driver = webdriver.Remote(command_executor=selenium_url, options=options)
+
+# 크롤링 시작
+driver.get("https://search.naver.com/search.naver?query=영화")
 time.sleep(2)
 
 i = 1  # 현재 페이지 내 영화 순번
