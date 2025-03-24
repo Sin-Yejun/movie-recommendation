@@ -14,7 +14,7 @@ options.add_argument("--no-sandbox")
 options.add_argument("--disable-dev-shm-usage")
 
 # 원격 브라우저 (Docker용)
-selenium_url = os.getenv("SELENIUM_URL", "http://localhost:4444/wd/hub")
+selenium_url = os.getenv("SELENIUM_URL", "http://selenium:4444/wd/hub")
 driver = webdriver.Remote(command_executor=selenium_url, options=options)
 
 # 크롤링 시작
