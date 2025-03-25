@@ -1,4 +1,4 @@
-name: Movie Data Crawling (Docker)
+name: Movie Data Crawling (Docker Compose)
 
 on:
   schedule:
@@ -13,13 +13,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Docker
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and run Docker container
+      - name: Create .env file from secrets
         run: |
-          docker build -t movie-crawler .
-          docker run --rm \
-            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
-            -e GH_PAT=${{ secrets.GH_PAT }} \
-            movie-crawler
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+          echo "GH_PAT=${{ secrets.GH_PAT }}" >> .env
+
+      - name: Build and run with Docker Compose
+        run: docker-compose up --build --abort-on-container-exit

@@ -6,6 +6,7 @@ services:
     image: selenium/standalone-chrome
     ports:
       - "4444:4444"
+    shm_size: 2g
 
   crawler:
     build: .
@@ -14,3 +15,4 @@ services:
     environment:
       - SELENIUM_URL=http://selenium:4444/wd/hub
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GH_PAT=${GH_PAT}
