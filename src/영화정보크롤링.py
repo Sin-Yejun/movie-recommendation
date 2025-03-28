@@ -84,11 +84,11 @@ while True:
         # 영화 정보를 딕셔너리로 저장
         movie_info = {
             "제목": title,
-            "급상승 순위": rank+"위",
+            "급상승 순위": rank,
             "장르": genre,
             "개봉일": release_date,
             "상영 시간": running_time,
-            "관객수": audience+"만명",
+            "관객수": audience,
             "관람객 평점": rating,
             "출연진": actors,
             "줄거리": stroy,
