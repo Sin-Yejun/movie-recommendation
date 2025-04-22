@@ -45,11 +45,18 @@ while True:
 
         # 순위, 관객 수, 실관람객 평균 평점 가져오기
         try:
-            items = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[2]/div[2]/div/div[2]/div/div/div[1]/div/div/span').text.strip()
+            if title == '야당':
+                items = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[5]/div[2]/div[2]/div/div[2]/div/div/div[1]/div/div/span').text.strip()
+
+            else:
+                items = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[2]/div[2]/div/div[2]/div/div/div[1]/div/div/span').text.strip()
             items = items.split('/')
             rank = items[0]
             audience = items[1]
-            rating = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[2]/div[2]/div/div[2]/div/div/div[2]/div/div').text.strip()
+            if title == '야당':
+                rating = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[5]/div[2]/div[2]/div/div[2]/div/div/div[2]/div/div').text.strip()
+            else:
+                rating = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[2]/div[2]/div/div[2]/div/div/div[2]/div/div').text.strip()
         except:
             rank = "N/A"
             audience = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[2]/div[2]/div/div[1]/dl/div[4]/dd').text.strip()
@@ -59,8 +66,13 @@ while True:
         print(f"급상승 순위: {rank}\n관객 수: {audience}\n평균평점: {rating}")
 
         # 개봉 정보 클릭
-        btn = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[1]/div[3]/div/div/ul/li[2]/a')
-        btn.click()
+        
+        if title == '야당':
+            btn = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[5]/div[1]/div[3]/div/div/ul/li[2]/a')
+            btn.click()
+        else:
+            btn = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[1]/div[3]/div/div/ul/li[2]/a')
+            btn.click()
         time.sleep(1)
 
         # 개봉일, 연령 제한, 장르, 국가, 상영시간, 줄거리 가져오기
