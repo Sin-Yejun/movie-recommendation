@@ -41,10 +41,7 @@ while True:
         time.sleep(1)
 
         # 관람평 메뉴 클릭
-        if title == '야당':
-            driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[5]/div[1]/div[3]/div/div/ul/li[5]/a').click()
-        else:
-            driver.find_element(By.XPATH, f'//*[@id="main_pack"]/div[3]/div[1]/div[3]/div/div/ul/li[5]/a').click()
+        driver.find_element(By.XPATH, f'//*[@id="main_pack"]/div[3]/div[1]/div[3]/div/div/ul/li[5]/a').click()
         time.sleep(1)
 
         idx = 4
