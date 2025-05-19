@@ -10,8 +10,8 @@
     <script>
         async function sendMessage() {
 
-            const url = "https://movie-recommendation-production.up.railway.app/chat";
-            // const url = "http://127.0.0.1:8000/chat";
+            //const url = "https://movie-recommendation-production.up.railway.app/chat";
+            const url = "http://127.0.0.1:8000/chat";
             const message = document.getElementById("message").value;
             const responseContainer = document.getElementById("response");
             const submitButton = document.getElementById("submit-button");
@@ -19,32 +19,31 @@
             submitButton.disabled = true; // 버튼 비활성화
             submitButton.style.opacity = "0.5"; // 버튼 흐리게
             submitButton.innerText = "생성 중...";
-
+            responseContainer.innerHTML = "";
+            const md = window.markdownit();
             try {
                 const response = await fetch(url, {
                     method: "POST",
-                    mode: "cors",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ query: message })
                 });
 
-                if (!response.ok) {
-                    throw new Error("Network response was not ok " + response.statusText);
-                }
+                if (!response.body) throw new Error("스트리밍 응답 없음");
 
-                const data = await response.json();
-                let text = data.response || "응답이 없습니다.";
-                text = text
-                    .replace(/### (.*?)(\n|$)/g, '<h3>$1</h3>$2')  // 가장 작은 제목 먼저 변환
-                    .replace(/## (.*?)(\n|$)/g, '<h2>$1</h2>$2')   // h2 변환
-                    .replace(/# (.*?)(\n|$)/g, '<h1>$1</h1>$2')    // h1 변환
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // **굵은 글씨** 변환
-                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                    .replace(/\n/g, '<br>')  // 개행 변환
-                    .replace(/---/g, '<hr>');  // 구분선 변환
-                responseContainer.innerHTML = text;
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let partial = "";
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    partial += chunk;
+
+                    // Markdown을 HTML로 변환하여 출력
+                    responseContainer.innerHTML = md.render(partial);
+                }
             } catch (error) {
                 console.error("Error:", error);
                 responseContainer.innerHTML = "Error: 응답을 가져올 수 없습니다.";

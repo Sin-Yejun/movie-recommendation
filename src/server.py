@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from openai import OpenAI
 from fastapi.middleware.cors import CORSMiddleware
@@ -92,10 +93,10 @@ def generate_ai_response(query, movie_data, reviews):
 
     아래 영화 데이터와 리뷰를 참고하여, 가장 적절한 답변을 만들어줘.
 
-    🎬 **영화 정보**:
+    영화 정보:
     {json.dumps(movie_data, ensure_ascii=False, indent=2)}
 
-    📝 **영화 리뷰**:
+    영화 리뷰:
     {reviews}
 
     답변 형식:
@@ -108,10 +109,14 @@ def generate_ai_response(query, movie_data, reviews):
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}]
+        messages=[{"role": "user", "content": prompt}],
+        stream=True
     )
     # print(prompt)
-    return response.choices[0].message.content.strip()
+    for chunk in response:
+        if chunk.choices and chunk.choices[0].delta.content:
+            yield chunk.choices[0].delta.content
+
 
 @app.post("/chat")
 async def search(query_data: QueryModel):
@@ -145,7 +150,7 @@ async def search(query_data: QueryModel):
         response_text = generate_ai_response(query, relevant_movies, reviews_json)
         print(response_text)
 
-        return {"response": response_text}
+        return StreamingResponse(response_text, media_type="text/plain")
 
     except Exception as e:
         print("에러 발생:", str(e))

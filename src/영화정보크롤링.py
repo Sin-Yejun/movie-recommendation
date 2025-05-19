@@ -45,18 +45,12 @@ while True:
 
         # 순위, 관객 수, 실관람객 평균 평점 가져오기
         try:
-            if title == '야당':
-                items = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[5]/div[2]/div[2]/div/div[2]/div/div/div[1]/div/div/span').text.strip()
-
-            else:
-                items = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[2]/div[2]/div/div[2]/div/div/div[1]/div/div/span').text.strip()
+            items = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[2]/div[2]/div/div[2]/div/div/div[1]/div/div/span').text.strip()
             items = items.split('/')
             rank = items[0]
             audience = items[1]
-            if title == '야당':
-                rating = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[5]/div[2]/div[2]/div/div[2]/div/div/div[2]/div/div').text.strip()
-            else:
-                rating = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[2]/div[2]/div/div[2]/div/div/div[2]/div/div').text.strip()
+
+            rating = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[2]/div[2]/div/div[2]/div/div/div[2]/div/div').text.strip()
         except:
             rank = "N/A"
             audience = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[2]/div[2]/div/div[1]/dl/div[4]/dd').text.strip()
@@ -67,12 +61,8 @@ while True:
 
         # 개봉 정보 클릭
         
-        if title == '야당':
-            btn = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[5]/div[1]/div[3]/div/div/ul/li[2]/a')
-            btn.click()
-        else:
-            btn = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[1]/div[3]/div/div/ul/li[2]/a')
-            btn.click()
+        btn = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[1]/div[3]/div/div/ul/li[2]/a')
+        btn.click()
         time.sleep(1)
 
         # 개봉일, 연령 제한, 장르, 국가, 상영시간, 줄거리 가져오기
@@ -92,11 +82,11 @@ while True:
         # 영화 정보를 딕셔너리로 저장
         movie_info = {
             "제목": title,
-            "급상승 순위": rank+"위",
+            "급상승 순위": rank,
             "장르": genre,
             "개봉일": release_date,
             "상영 시간": running_time,
-            "관객수": audience+"만명",
+            "관객수": audience,
             "관람객 평점": rating,
             "출연진": actors,
             "줄거리": stroy,
