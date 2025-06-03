@@ -53,38 +53,57 @@ def query_embedding(text):
     return np.array(response.data[0].embedding, dtype=np.float32).reshape(1, -1)
 
 
-# 영화 제목으로 리뷰 가져오기 (딕셔너리 반환)
-def get_movie_reviews(movie_title, max_reviews=5, max_length=300):
+# 그룹별 리뷰 데이터만 반환
+def get_movie_reviews(movie_title, max_length=500):
     reviews = movie_reviews[movie_reviews[:, 0] == movie_title]
     if len(reviews) == 0:
-        return {"movie": movie_title, "reviews": []}
+        return {"movie": movie_title, "reviews": {"top": [], "mid": [], "low": []}}
 
     sorted_reviews = sorted(reviews, key=lambda x: float(x[2]), reverse=True)
     total_reviews = len(sorted_reviews)
-    if total_reviews < max_reviews:
-        selected_reviews = sorted_reviews
-    else:
-        top_reviews = sorted_reviews[:total_reviews // 3]
-        mid_reviews = sorted_reviews[total_reviews // 3: 2 * total_reviews // 3]
-        low_reviews = sorted_reviews[2 * total_reviews // 3:]
-        selected_reviews = (
-            random.sample(top_reviews, min(2, len(top_reviews))) +
-            random.sample(mid_reviews, min(2, len(mid_reviews))) +
-            random.sample(low_reviews, min(1, len(low_reviews)))
-        )
 
-    review_data = {
-        "movie": movie_title,
-        "reviews": [
+    top = sorted_reviews[:total_reviews // 3]
+    mid = sorted_reviews[total_reviews // 3: 2 * total_reviews // 3]
+    low = sorted_reviews[2 * total_reviews // 3:]
+
+    def extract(group):
+        return [
             {
                 "author": row[1],
                 "rating": float(row[2]),
                 "comment": row[3][:max_length] + "..." if len(row[3]) > max_length else row[3]
             }
-            for row in selected_reviews
+            for row in group
         ]
+
+    return {
+        "movie": movie_title,
+        "reviews": {
+            "top": extract(top),
+            "mid": extract(mid),
+            "low": extract(low)
+        }
     }
-    return review_data  # JSON 문자열 대신 딕셔너리 반환
+
+def summarize_reviews_group(group_reviews, label):
+    review_text = "\n\n".join(
+        f"- 평점: {review['rating']}, 내용: {review['comment']}" for review in group_reviews
+    )
+
+    prompt = f"""
+    다음은 '{label}' 그룹에 해당하는 영화 리뷰 목록입니다. 이 리뷰들을 종합해 간결하게 요약해줘. 핵심 내용, 공통 의견, 인상적인 문구 등을 중심으로 작성하되, 길지 않게 정리해줘.
+
+    리뷰 목록:
+    {review_text}
+
+    요약:
+    """
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content.strip()
 
 # ChatGPT API를 이용해 영화 추천 및 리뷰 요약 생성
 def generate_ai_response(query, movie_data, reviews):
@@ -112,7 +131,7 @@ def generate_ai_response(query, movie_data, reviews):
         messages=[{"role": "user", "content": prompt}],
         stream=True
     )
-    # print(prompt)
+    print(prompt)
     for chunk in response:
         if chunk.choices and chunk.choices[0].delta.content:
             yield chunk.choices[0].delta.content
@@ -126,14 +145,14 @@ async def search(query_data: QueryModel):
     try:
         # FAISS 검색 (상위 5개 영화 찾기)
         embedding = query_embedding(query)
-        distances, indices = index.search(embedding, 5)
+        distances, indices = index.search(embedding, 3)
 
         if len(indices[0]) == 0:
             raise HTTPException(status_code=404, detail="관련된 영화를 찾을 수 없습니다.")
 
         # 영화 정보 및 리뷰 데이터 수집
         relevant_movies = []
-        relevant_reviews = []
+        summarized_reviews = []
         for idx in indices[0]:
             if idx >= len(movies):  # 인덱스 범위 초과 방지
                 continue
@@ -142,9 +161,21 @@ async def search(query_data: QueryModel):
             relevant_movies.append(movie_data)
 
             # 해당 영화의 리뷰 가져오기
-            relevant_reviews.append(get_movie_reviews(movie_data["제목"]))
+            raw_reviews = get_movie_reviews(movie_data["제목"])
+            top_summary = summarize_reviews_group(raw_reviews["reviews"]["top"], "상위")
+            mid_summary = summarize_reviews_group(raw_reviews["reviews"]["mid"], "중위")
+            low_summary = summarize_reviews_group(raw_reviews["reviews"]["low"], "하위")
+
+            summarized_reviews.append({
+                "movie": raw_reviews["movie"],
+                "summaries": {
+                    "top": top_summary,
+                    "mid": mid_summary,
+                    "low": low_summary
+                }
+            })
         # 리뷰를 JSON 배열로 변환
-        reviews_json = json.dumps(relevant_reviews, ensure_ascii=False, indent=2)
+        reviews_json = json.dumps(summarized_reviews, ensure_ascii=False, indent=2)
 
         # AI가 답변 생성
         response_text = generate_ai_response(query, relevant_movies, reviews_json)
