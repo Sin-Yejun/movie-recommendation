@@ -44,4 +44,4 @@ np.save("src/db/movie_reviews.npy", df.to_numpy(), allow_pickle=True)
 # 현재 날짜를 today.txt에 저장
 current_date = datetime.now().strftime("%Y-%m-%d")
 with open("src/db/date.txt", "w", encoding="utf-8") as f:
-    f.write(current_date + " 영화 정보 업데이트 완료!")
+    f.write(current_date + " 최신 영화 정보 업데이트 완료!")

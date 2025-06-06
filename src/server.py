@@ -96,7 +96,7 @@ def get_balanced_movie_reviews(movie_title, max_per_group=10, max_length=500):
             {
                 "author": row[1],
                 "rating": float(row[2]),
-                "comment": row[3][:max_length] + "..." if len(row[3]) > max_length else row[3]
+                "comment": str(row[3])[:max_length] + "..." if len(str(row[3])) > max_length else str(row[3])
             }
             for row in sampled
         ]
@@ -143,6 +143,7 @@ def generate_ai_response(query, movie_data, reviews=None, is_general_recommend=F
         prompt = f"""
         사용자의 질문: "{query}"
 
+        주어진 영화 데이터는 이미 개봉한 영화들에 대한 정보야.
         아래 영화 데이터만 참고해서, 사용자에게 어울릴 만한 영화를 추천해줘.
         사용자가 아래 영화 데이터에 없는 영화를 말하면 최신 영화만 추천 가능하다고 말하고 다른 걸 추천해줘.
         ex) 최신 영화가 아닌 영화에 대한 설명은 어렵습니다. 대신 최신 영화를 아래와 같이 추천해 드리겠습니다.
@@ -150,6 +151,7 @@ def generate_ai_response(query, movie_data, reviews=None, is_general_recommend=F
         - 영화별로 제목, 장르, 간단한 줄거리, 추천 포인트를 적어줘.
         - 관객수, 평점, 급상승 순위 등을 참고하고 전체적인 인상과 특징 위주로 알려줘.
         - 답변은 Markdown 문법(볼드, 리스트 등)으로 읽기 쉽게 해줘.
+        - 이모티콘을 섞어서 가독성을 높여도 좋아.
 
         영화 정보:
         {json.dumps(movie_data, ensure_ascii=False, indent=2)}
@@ -158,12 +160,14 @@ def generate_ai_response(query, movie_data, reviews=None, is_general_recommend=F
         prompt = f"""
         사용자의 질문: "{query}"
 
+        주어진 영화 데이터는 이미 개봉한 영화들에 대한 정보야.
         아래 영화 데이터와 리뷰 요약(상위/중위/하위)을 참고해서, 질문 영화에 대해 상세하고 친절한 답변을 만들어줘.
 
         - 영화 줄거리, 장르, 상/중/하 리뷰 요약(특징/호불호/불만 모두) 중심으로 안내해줘.
         - 관람 전 알아두면 좋을 포인트나, 관객의 인상적인 반응도 자연스럽게 포함해줘.
         - 필요하면 비슷한 분위기의 영화 한두 편 추천해도 좋아.
         - 답변은 Markdown 문법(제목, 리스트, 강조 등)을 적극 활용해줘.
+        - 이모티콘을 섞어서 가독성을 높여도 좋아.
 
         영화 정보:
         {json.dumps(movie_data, ensure_ascii=False, indent=2)}
@@ -305,8 +309,10 @@ def test_single_query(query):
         print("  >> 오류:", e)
 
 if __name__ == "__main__":
-    while True:
-        q = input("질문 입력 (엔터 시 종료): ").strip()
-        if not q:
-            break
-        test_single_query(q)
+    # while True:
+    #     q = input("질문 입력 (엔터 시 종료): ").strip()
+    #     if not q:
+    #         break
+    #     test_single_query(q)
+    port = int(os.getenv("PORT", 8000))  # Render에서 자동 감지
+    uvicorn.run(app, host="0.0.0.0", port=port)
