@@ -10,8 +10,8 @@
     <script>
         async function sendMessage() {
 
-            const url = "https://movie-recommendation-production.up.railway.app/chat";
-            // const url = "http://127.0.0.1:8000/chat";
+            //const url = "https://movie-recommendation-production.up.railway.app/chat";
+            const url = "http://127.0.0.1:8000/chat";
             const message = document.getElementById("message").value;
             const responseContainer = document.getElementById("response");
             const submitButton = document.getElementById("submit-button");
@@ -19,32 +19,32 @@
             submitButton.disabled = true; // 버튼 비활성화
             submitButton.style.opacity = "0.5"; // 버튼 흐리게
             submitButton.innerText = "생성 중...";
-
+            responseContainer.innerHTML = '<span id="loading-text" style="font-style: italic; color: gray;"></span>';
+            startLoadingAnimation(); // 로딩 애니메이션 시작
+            const md = window.markdownit();
             try {
                 const response = await fetch(url, {
                     method: "POST",
-                    mode: "cors",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ query: message })
                 });
 
-                if (!response.ok) {
-                    throw new Error("Network response was not ok " + response.statusText);
-                }
+                if (!response.body) throw new Error("스트리밍 응답 없음");
 
-                const data = await response.json();
-                let text = data.response || "응답이 없습니다.";
-                text = text
-                    .replace(/### (.*?)(\n|$)/g, '<h3>$1</h3>$2')  // 가장 작은 제목 먼저 변환
-                    .replace(/## (.*?)(\n|$)/g, '<h2>$1</h2>$2')   // h2 변환
-                    .replace(/# (.*?)(\n|$)/g, '<h1>$1</h1>$2')    // h1 변환
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // **굵은 글씨** 변환
-                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                    .replace(/\n/g, '<br>')  // 개행 변환
-                    .replace(/---/g, '<hr>');  // 구분선 변환
-                responseContainer.innerHTML = text;
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let partial = "";
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    stopLoadingAnimation(); // 로딩 애니메이션 중지
+                    const chunk = decoder.decode(value, { stream: true });
+                    partial += chunk;
+
+                    // Markdown을 HTML로 변환하여 출력
+                    responseContainer.innerHTML = md.render(partial);
+                }
             } catch (error) {
                 console.error("Error:", error);
                 responseContainer.innerHTML = "Error: 응답을 가져올 수 없습니다.";
@@ -81,7 +81,7 @@
         }
 
         function setMovieQuery(title) {
-            document.getElementById("message").value = `${title}에 대한 정보 알려줘.`;
+            document.getElementById("message").value = `${title} 영화에 대한 정보 알려줘.`;
         }
 
         let currentIndex = 0;
@@ -130,6 +130,29 @@
             loadMovies();
             loadDate();
         });
+
+        let loadingInterval;
+
+        function startLoadingAnimation() {
+            const loadingText = document.getElementById("loading-text");
+            let dotCount = 0;
+            loadingText.textContent = "답변 생성 중";
+
+            loadingInterval = setInterval(() => {
+                dotCount = (dotCount + 1) % 4; // 0~3까지 반복
+                let dots = '.'.repeat(dotCount);
+                loadingText.textContent = "답변 생성 중" + dots;
+            }, 500); // 0.5초마다 갱신
+        }
+
+        function stopLoadingAnimation() {
+            clearInterval(loadingInterval);
+            const loadingText = document.getElementById("loading-text");
+            if (loadingText) {
+                loadingText.textContent = "";
+            }
+        }
+
     </script>
 </head>
 
@@ -146,11 +169,19 @@
 
     <section class="info-container">
         <h2>🎬 영화 추천 AI</h2>
-        <p>관심 있는 영화에 대해 질문하세요! 줄거리, 리뷰, 출연진 정보를 제공합니다.</p>
+        <p>
+            궁금한 영화를 입력하면 AI가 <strong>줄거리, 리뷰, 출연진</strong> 정보를 알려드려요.<br>
+            예: <em>"요즘 어떤 영화가 재밌어?"</em>, <em>"액션 영화 추천해줘"</em>
+        </p>
+        <p style="margin-top: 0.5em;">
+            🎞️ 아래 포스터를 클릭하면 <strong>해당 영화 질문이 자동 입력</strong>돼요!
+        </p>
+        
     </section>
 
     <form onsubmit="event.preventDefault(); sendMessage();">
-        <input type="text" id="message" name="message" placeholder="궁금한 영화를 입력하세요..." required>
+        <input type="text" id="message" name="message" placeholder="영화 추천, 줄거리, 리뷰, 배우 정보 등 무엇이든 질문하세요!
+        ." required>
         <button type="submit" id="submit-button">🎥 답변 생성</button>
     </form>
 
