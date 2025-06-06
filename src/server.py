@@ -57,7 +57,7 @@ def extract_movie_titles_ai(query, movie_titles):
     )
     user_msg = (
         f"질문: {query}\n\n"
-        "질문에 언급된(암시된 것 포함) 영화 제목을 반드시 위 데이터와 완전히 동일한 표기로만 골라, JSON의 'titles' 키의 리스트로 반환해. "
+        "질문에 언급된 영화 제목을 반드시 위 데이터와 완전히 동일한 표기로만 골라, JSON의 'titles' 키의 리스트로 반환해. "
         "없으면 반드시 ['추천']만 반환해."
     )
 
@@ -144,6 +144,8 @@ def generate_ai_response(query, movie_data, reviews=None, is_general_recommend=F
         사용자의 질문: "{query}"
 
         아래 영화 데이터만 참고해서, 사용자에게 어울릴 만한 영화를 추천해줘.
+        사용자가 아래 영화 데이터에 없는 영화를 말하면 최신 영화만 추천 가능하다고 말하고 다른 걸 추천해줘.
+        ex) 최신 영화가 아닌 영화에 대한 설명은 어렵습니다. 대신 최신 영화를 아래와 같이 추천해 드리겠습니다.
 
         - 영화별로 제목, 장르, 간단한 줄거리, 추천 포인트를 적어줘.
         - 관객수, 평점, 급상승 순위 등을 참고하고 전체적인 인상과 특징 위주로 알려줘.
@@ -179,50 +181,59 @@ def generate_ai_response(query, movie_data, reviews=None, is_general_recommend=F
         if chunk.choices and chunk.choices[0].delta.content:
             yield chunk.choices[0].delta.content
 
-# FastAPI 엔드포인트 예시
 @app.post("/chat")
 async def search(query_data: QueryModel):
     query = query_data.query
     print(f"사용자 입력: {query}")
 
-    # === AI를 이용해 질문 유형 분류 ===
-    is_general_recommend = classify_query(query)
-    print("is_general_recommend:", is_general_recommend)
+    # === 영화 제목 추출 ===
+    extracted_titles = extract_movie_titles_ai(query, movie_titles)
+    print("extracted_titles:", extracted_titles)
+
+    is_general_recommend = (extracted_titles == ['추천'])
 
     try:
+        # 임베딩 및 FAISS 검색은 추천 질문일 때도 전체적으로 하길 원하면 유지
         embedding = query_embedding(query)
-        distances, indices = index.search(embedding, 3)
-
-        if len(indices[0]) == 0:
-            raise HTTPException(status_code=404, detail="관련된 영화를 찾을 수 없습니다.")
+        distances, indices = index.search(embedding, 5)
 
         relevant_movies = []
         summarized_reviews = []
-        for idx in indices[0]:
-            if idx >= len(movies):
-                continue
-            movie_data = movies[idx].copy()
-            movie_data.pop("영화포스터", None)
-            relevant_movies.append(movie_data)
+        # (1) 추천 질문인 경우: 상위 3개 영화 전체정보를 프롬프트에
+        if is_general_recommend:
+            for idx in indices[0]:
+                if idx >= len(movies): continue
+                movie_data = movies[idx].copy()
+                movie_data.pop("영화포스터", None)
+                relevant_movies.append(movie_data)
+            response_text = generate_ai_response(query, relevant_movies, reviews=None, is_general_recommend=True)
 
-            raw_reviews = get_balanced_movie_reviews(movie_data["제목"])
-            top_summary = summarize_reviews_group(raw_reviews["reviews"]["top"], "상위 (평점 8~10점)")
-            mid_summary = summarize_reviews_group(raw_reviews["reviews"]["mid"], "중위 (평점 4~7점)")
-            low_summary = summarize_reviews_group(raw_reviews["reviews"]["low"], "하위 (평점 1~3점)")
+        # (2) 특정 영화 질문: 추출된 제목 각각에 대해 리뷰 요약
+        else:
+            for title in extracted_titles:
+                try:
+                    idx = movie_titles.index(title)
+                except ValueError:
+                    continue  # 못찾으면 skip
+                movie_data = movies[idx].copy()
+                movie_data.pop("영화포스터", None)
+                relevant_movies.append(movie_data)
 
-            summarized_reviews.append({
-                "movie": raw_reviews["movie"],
-                "summaries": {
-                    "top": top_summary,
-                    "mid": mid_summary,
-                    "low": low_summary
-                }
-            })
-        reviews_json = json.dumps(summarized_reviews, ensure_ascii=False, indent=2)
+                raw_reviews = get_balanced_movie_reviews(title)
+                top_summary = summarize_reviews_group(raw_reviews["reviews"]["top"], "상위 (평점 8~10점)")
+                mid_summary = summarize_reviews_group(raw_reviews["reviews"]["mid"], "중위 (평점 4~7점)")
+                low_summary = summarize_reviews_group(raw_reviews["reviews"]["low"], "하위 (평점 1~3점)")
 
-        # == 핵심: 프롬프트 분기 ==
-        response_text = generate_ai_response(query, relevant_movies, reviews_json, is_general_recommend)
-        print(response_text)
+                summarized_reviews.append({
+                    "movie": title,
+                    "summaries": {
+                        "top": top_summary,
+                        "mid": mid_summary,
+                        "low": low_summary
+                    }
+                })
+            reviews_json = json.dumps(summarized_reviews, ensure_ascii=False, indent=2)
+            response_text = generate_ai_response(query, relevant_movies, reviews_json, is_general_recommend=False)
 
         return StreamingResponse(response_text, media_type="text/plain")
 
@@ -230,18 +241,72 @@ async def search(query_data: QueryModel):
         print("에러 발생:", str(e))
         raise HTTPException(status_code=500, detail="서버 오류가 발생했습니다.")
 
+
 @app.get("/")
 async def root():
     return {"message": "서버가 정상적으로 실행 중입니다!"}
 
-# 예시 테스트
+
+def test_single_query(query):
+    print(f"\n[Q] 질문: {query}")
+
+    # 1. 제목 추출
+    extracted_titles = extract_movie_titles_ai(query, movie_titles)
+    print("  >> 추출된 제목:", extracted_titles)
+
+    is_general_recommend = (extracted_titles == ['추천'])
+    print("  >> 추천 질문 여부:", is_general_recommend)
+
+    # 2. 추천 분기
+    if is_general_recommend:
+        embedding = query_embedding(query)
+        distances, indices = index.search(embedding, 5)
+        relevant_movies = []
+        for idx in indices[0]:
+            if idx >= len(movies): continue
+            movie_data = movies[idx].copy()
+            movie_data.pop("영화포스터", None)
+            relevant_movies.append(movie_data)
+        response_gen = generate_ai_response(query, relevant_movies, reviews=None, is_general_recommend=True)
+    else:
+        relevant_movies = []
+        summarized_reviews = []
+        for title in extracted_titles:
+            try:
+                idx = movie_titles.index(title)
+            except ValueError:
+                continue
+            movie_data = movies[idx].copy()
+            movie_data.pop("영화포스터", None)
+            relevant_movies.append(movie_data)
+            raw_reviews = get_balanced_movie_reviews(title)
+            top_summary = summarize_reviews_group(raw_reviews["reviews"]["top"], "상위 (평점 8~10점)")
+            mid_summary = summarize_reviews_group(raw_reviews["reviews"]["mid"], "중위 (평점 4~7점)")
+            low_summary = summarize_reviews_group(raw_reviews["reviews"]["low"], "하위 (평점 1~3점)")
+            summarized_reviews.append({
+                "movie": title,
+                "summaries": {
+                    "top": top_summary,
+                    "mid": mid_summary,
+                    "low": low_summary
+                }
+            })
+        reviews_json = json.dumps(summarized_reviews, ensure_ascii=False, indent=2)
+        response_gen = generate_ai_response(query, relevant_movies, reviews_json, is_general_recommend=False)
+
+    # 3. 답변 출력
+    print("[A] 답변:")
+    answer = ""
+    try:
+        for chunk in response_gen:
+            answer += chunk
+        print(answer.strip())
+    except Exception as e:
+        print("  >> 오류:", e)
+
 if __name__ == "__main__":
-    #print(movie_titles)
-    for q in [
-        "요즘 영화 추천해줘",  # --> ['A MINECRAFT MOVIE 마인크래프트 무비']
-        "액션영화 추천",  # --> ['추천']
-        "데몬 헌터스 어때?"  # --> ['기생충', '듄']
-    ]:
-        print("질문:", q)
-        result = extract_movie_titles_ai(q, movie_titles)
-        print(result)
+    while True:
+        q = input("질문 입력 (엔터 시 종료): ").strip()
+        if not q:
+            break
+        test_single_query(q)
