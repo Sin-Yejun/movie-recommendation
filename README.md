@@ -1,3 +1,4 @@
+## 25.07.22 이후 배포중단 (사유: 취업으로 인해 서버비 지불X, 서비스를 잠시 종료합니다. )
 # 🎬 Filmio: AI 영화 추천 & 리뷰 분석 플랫폼
 
 [🔗 배포 사이트 바로가기](https://sin-yejun.github.io/movie-recommendation)
