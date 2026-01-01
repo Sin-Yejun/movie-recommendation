@@ -19,13 +19,8 @@ client = OpenAI()
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://sin-yejun.github.io",
-        "http://localhost:5500",
-        "http://127.0.0.1:5500",
-        "http://localhost:8000",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],  # 모든 도메인에서의 요청을 허용합니다.
+    allow_credentials=False, # 쿠키/인증정보를 사용하지 않으므로 False로 설정해야 "*"와 함께 사용 가능합니다.
     allow_methods=["*"],
     allow_headers=["*"],
 )
