@@ -9,8 +9,8 @@ done
 echo "Selenium is ready! Starting crawl..."
 
 # 크롤링 3단계 순서대로 실행
-python src/영화정보크롤링.py
-python src/영화리뷰크롤링.py
+python src/crawler_movie_info.py
+python src/crawler_movie_reviews.py
 OPENAI_API_KEY=$OPENAI_API_KEY python src/create_embedding.py
 
 # GitHub에 푸시

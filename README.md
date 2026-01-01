@@ -1,164 +1,107 @@
-## 25.07.22 이후 배포중단 (사유: 취업으로 인해 서버비 지불X, 서비스를 잠시 종료합니다. )
-# 🎬 Filmio: AI 영화 추천 & 리뷰 분석 플랫폼
+# 🎬 Filmio - AI Movie Curator (Single-Shot RAG & Streaming)
 
-[🔗 배포 사이트 바로가기](https://sin-yejun.github.io/movie-recommendation)
-
----
-
-## 프로젝트 개요
-
-**Filmio**는 AI와 최신 데이터 크롤링 기술을 결합하여  
-사용자에게 **최신 영화 정보**, **리뷰 분석**, 그리고 **개인 맞춤형 추천**을 제공하는 스마트 영화 비서 서비스입니다.
+**Filmio**는 사용자의 질문을 이해하고, 실시간으로 영화 정보를 검색하여 맞춤형 답변과 추천을 제공하는 AI 큐레이션 서비스입니다.
+**Single-Shot RAG** 기법과 **Streaming Response**를 적용하여, 빠르고 자연스러운 대화 경험을 제공합니다.
 
 ---
 
-## 🌐 서비스 흐름 (아키텍처 다이어그램)
+## 🔥 Key Features
 
-![Filmio 파이프라인](src/img/pipeline.png)
+### 1. 🧠 Single-Shot RAG (Retrieval-Augmented Generation)
 
-> - **사용자 입력** → **질문 유형 분석(gpt3.5-turbo)** →  
-> - 추천 유형: 임베딩 → FAISS 유사도 검색 → 최신 영화 정보(크롤링) → 통합 프롬프트  
-> - 정보 유형: 크롤링 데이터(영화정보+리뷰) → 평점대별 리뷰 요약(gpt4o-mini) → 통합 프롬프트  
-> - **최종 생성형 AI 답변(gpt4o-mini)**  
+- 기존의 복잡한 Multi-Turn 방식 대신, **단 한 번의 LLM 호출**로 '의도 파악 + 답변 생성 + 영화 추천'을 동시에 수행합니다.
+- 벡터 검색(FAISS)과 키워드 매칭을 결합하여 최적의 영화 후보군(Candidates)을 선별하고 프롬프트에 주입합니다.
 
----
+### 2. ⚡ Real-Time Streaming
 
-## 📍 Filmio의 주요 기능
+- **Server**: FastAPI의 `StreamingResponse`를 통해 생성된 토큰을 실시간으로 전송합니다.
+- **Client**: 브라우저에서 `ReadableStream`을 사용하여 답변이 생성되는 즉시 타이핑 효과와 함께 출력합니다.
+- **Hybrid Response**: 텍스트 답변과 구조화된 데이터(JSON 추천 목록)를 하나의 스트림으로 받아 처리합니다.
 
-- ✅ **최신 영화 정보 자동 크롤링**  
-  - Selenium 기반 크롤러가 네이버에서 최신 영화 8편의 상세 정보 실시간 수집  
-- ✅ **영화 리뷰 크롤링 및 AI 요약**  
-  - 실관람객/네티즌/평론가 리뷰를 평점대별로 분석 & 요약  
-- ✅ **OpenAI 기반 추천·정보 생성**  
-  - gpt3.5-turbo로 질문 유형 판별  
-  - gpt4o-mini로 평점대별 리뷰 요약 & 최종 답변 생성  
-- ✅ **FAISS 벡터 DB 기반 영화 유사도 검색**  
-  - 질문 임베딩 후 최신 영화 데이터에서 가장 유사한 5편 자동 추천  
-- ✅ **직관적인 웹 UI**  
-  - 사용자 질문 → AI 답변 실시간 표시  
-  - 상영 영화 포스터 슬라이더
+### 3. 🎨 Modern UI/UX
+
+- **Theme**: Dark & Glassmorphism (Deep Navy Gradient + Translucent Cards).
+- **Layout**: 2-Column Dashboard (Movie Grid + Chat Panel).
+- **Interactive**: 포스터 클릭 시 자동 질문 생성, 반응형 디자인 적용.
 
 ---
 
-## 🛠️ 주요 파이프라인 상세
+## 🛠 Tech Stack
 
-1. **최신 영화/리뷰 데이터 크롤링**
-    - `영화정보크롤링.py`  
-        - Selenium 이용, 네이버에서 최신 영화 정보(제목, 출연, 포스터, 개봉일, 장르, 줄거리 등) 크롤링  
-        - 결과는 JSON 파일로 저장  
-    - `영화리뷰크롤링.py`  
-        - 다양한 평점·리뷰를 수집하여 CSV 파일로 저장
-
-2. **질문 유형 분석**
-    - gpt3.5-turbo가 사용자의 질문을 "추천형" / "정보형"으로 분류
-
-3. **영화 임베딩 생성 & 유사도 검색 (추천형)**
-    - OpenAI 임베딩 → FAISS로 최신 영화 중 유사 영화 5편 추출  
-    - 최신 데이터 기반(웹 크롤링) 정보와 통합 프롬프트 생성
-
-4. **특정 영화 정보/리뷰 분석 (정보형)**
-    - 크롤링 데이터에서 해당 영화 + 리뷰 데이터 추출  
-    - gpt4o-mini가 평점대별 리뷰(상·중·하위)를 요약  
-    - 영화 정보 + 리뷰 요약으로 통합 프롬프트 생성
-
-5. **최종 답변 생성 (gpt4o-mini)**
-    - 통합 프롬프트 기반, 사용자의 질문에 맞는 마크다운 기반의 풍부한 답변 생성
-
-6. **웹 인터페이스 (index.html)**
-    - 질문 입력 → AI 답변 표시  
-    - 상영 영화 포스터 슬라이더 구현
+| Category     | Technology                                                              |
+| ------------ | ----------------------------------------------------------------------- |
+| **Backend**  | Python 3.12, FastAPI, Uvicorn                                           |
+| **AI / ML**  | OpenAI API (`gpt-4o-mini`), FAISS (Vector DB), `text-embedding-3-small` |
+| **Data**     | Selenium (Crawling), NumPy, Pandas                                      |
+| **Frontend** | HTML5, CSS3, Vanilla JS (No Framework)                                  |
 
 ---
 
-## 🔧 기술 스택
+## 📁 Project Structure
 
-- **Python** (크롤링, 임베딩, API)
-- **JavaScript, HTML, CSS** (웹 UI)
-- **Selenium** (웹 크롤링)
-- **OpenAI API** (임베딩, LLM)
-- **FAISS** (유사도 기반 벡터 검색)
-- **Pandas, JSON** (데이터 처리)
-- **FastAPI** (API 서버)
-- **Markdown-it** (웹 마크다운 렌더링)
-- **Git, VS Code, Chrome WebDriver**
-
----
-
-## ⚙️ 운영 및 자동화 시스템
-
-### 🎯 배포 및 서버 운영
-
-- **서버 배포:**  
-  - [Railway](https://railway.app/)를 이용해 FastAPI 기반 백엔드 서버를 클라우드에서 항상 가동
-  - 자동 자원 할당 및 모니터링, 환경 변수 관리(OPENAI_API_KEY 등)는 Railway에서 일괄 관리
-
-- **프론트엔드(웹 UI):**  
-  - GitHub Pages를 통해 정적 웹사이트(index.html 등) 배포
+```bash
+movie-recommendation/
+├── src/
+│   ├── db/
+│   │   ├── movies.json            # 크롤링된 영화 메타 데이터
+│   │   ├── movie_reviews.npy      # 리뷰 데이터 (NumPy)
+│   │   └── movie_index.faiss      # FAISS 벡터 인덱스
+│   ├── crawler_movie_info.py      # 영화 상세 정보 크롤러 (Naver)
+│   ├── crawler_movie_reviews.py   # 실관람객 리뷰 크롤러
+│   ├── create_embedding.py        # 벡터 임베딩 생성 및 FAISS 인덱싱
+│   └── server.py                  # FastAPI 백엔드 서버 (Streaming RAG)
+├── index.html                     # 메인 프론트엔드 (Dashboard UI)
+├── style.css                      # 스타일시트 (Glassmorphism)
+└── README.md
+```
 
 ---
 
-### 🤖 데이터 크롤링 및 자동화 파이프라인
+## 🚀 Getting Started
 
-- **크롤링 & 데이터 갱신 자동화:**  
-  - `crawl.yml` (GitHub Actions 워크플로우)  
-    - 매일 정해진 시간(한국 시간 00시)에 자동 실행(cron 스케줄)  
-    - 저장소 체크아웃 → Docker Compose로 크롤러 컨테이너 빌드/실행 → 최신 영화/리뷰 데이터 수집 및 커밋
-    - OPENAI_API_KEY, GH_PAT 등 민감 정보는 GitHub Secrets를 이용해 안전하게 관리
+### 1. 환경 설정 (.env)
 
-- **Docker Compose 활용:**  
-  - 크롤러와 필요한 의존성 환경을 **컨테이너**로 분리/관리  
-  - `docker-compose.yml`에 각 서비스(크롤러, 임베딩 생성 등) 정의  
-  - GitHub Actions 워크플로우에서 한 번에 build/run  
-  - 크롤링 결과를 곧바로 저장소에 반영(커밋/푸시)
+루트 디렉토리에 `.env` 파일을 생성하고 OpenAI API 키를 설정하세요.
 
----
+```ini
+OPENAI_API_KEY=sk-proj-...
+SELENIUM_URL=http://localhost:4444/wd/hub  # (크롤링 시 필요)
+```
 
-### 🛡️ CI/CD 및 배포 자동화 흐름
+### 2. 데이터 준비 (크롤링 & 임베딩)
 
-1. **소스코드 변경** → GitHub 저장소 푸시  
-2. GitHub Actions에서 테스트/빌드  
-3. 최신 데이터 자동 크롤링(매일 자정) → 데이터/임베딩 업데이트  
-4. Railway가 서버(백엔드 API) 자동 재배포  
-5. 사용자/관리자는 언제든 **항상 최신 영화·리뷰 데이터 기반 AI 추천**을 이용 가능
+```bash
+# 1. 영화 정보 수집
+python src/crawler_movie_info.py
 
----
+# 2. 리뷰 데이터 수집
+python src/crawler_movie_reviews.py
 
-### 📁 주요 자동화 파일
+# 3. 벡터 임베딩 생성 (FAISS 인덱스 빌드)
+python src/create_embedding.py
+```
 
-- `.github/workflows/crawl.yml`  
-  - 영화 정보/리뷰 데이터 자동 크롤링 & 업데이트
+### 3. 서버 실행
 
-- `docker-compose.yml`  
-  - 데이터 크롤링, 임베딩 생성, 서버 구동 등 전체 환경 통합 관리
+```bash
+# 포트 3000에서 서버 시작 (Hot Reload 모드)
+uvicorn src.server:app --reload --port 3000
+```
 
-- `server.py`  
-  - FastAPI 기반 REST API, Railway에서 직접 실행
+### 4. 접속
+
+브라우저에서 `http://localhost:3000` (또는 `index.html` 직접 실행) 접속.
 
 ---
 
-## 🚀 프로젝트 성과
+## 💡 How It Works (Internal Logic)
 
-- **최신 영화 DB** 자동 구축 및 주기적 업데이트  
-    - 매일 자동 크롤링 및 임베딩 파이프라인 운영, **최신 정보가 실시간 반영**
-- 실관람객 리뷰 기반, **신뢰도 높은 영화 분석/추천** 제공  
-    - 평점대별 리뷰 분석/요약으로 객관적인 영화 정보 제공
-- **AI 기반 자동 응답 및 리뷰 요약**으로 **사용자 경험 대폭 향상**  
-    - OpenAI 모델 활용, 질문 의도 파악부터 최적 답변까지 완전 자동화
-- **슬라이더 등 모던한 웹 UI/UX** 구현  
-    - 사용자 친화적 인터페이스로 접근성과 만족도 향상
-- **클라우드 기반 서버 운영 및 완전 자동화된 데이터 파이프라인**  
-    - Railway 등 클라우드 플랫폼에 백엔드 서버 상시 운영  
-    - GitHub Actions + Docker Compose를 이용한 **크롤링/데이터 갱신 CI/CD 자동화**  
-    - 민감 정보는 GitHub Secrets, Railway 환경 변수 등으로 안전하게 관리
-- **무중단 서비스 및 지속적인 배포(Continuous Deployment)** 실현  
-    - 코드/데이터 갱신 시마다 서비스 재시작 없이 최신 기능 및 데이터 제공
-
----
-
-## 📄 사용법
-
-1. [배포 사이트](https://sin-yejun.github.io/movie-recommendation) 접속
-2. 영화 관련 질문 입력 (예: “범죄도시3 줄거리 알려줘”, “액션 영화 추천해줘” 등)
-3. AI가 실시간으로 맞춤형 답변 제공
-
----
+1. **User Input**: 사용자가 "스릴러 영화 추천해줘"라고 입력.
+2. **Embedding**: 질문을 벡터로 변환 (`text-embedding-3-small`).
+3. **Retrieval**: FAISS에서 가장 유사한 영화 5편 + 키워드 매칭 영화 검색.
+4. **Context Injection**: 검색된 영화들의 줄거리와 **실관람객 리뷰**를 문맥으로 조합.
+5. **Generation (Streaming)**:
+   - GPT-5-mini가 문맥을 보고 답변을 생성하기 시작.
+   - 서버는 첫 단어부터 클라이언트로 스트리밍 전송.
+   - 답변 완료 후 `<<<REC>>>` 구분자와 함께 추천 영화 제목 리스트(JSON) 전송.
+6. **Rendering**: 클라이언트는 텍스트를 마크다운으로 보여주고, 마지막에 도착한 JSON을 파싱해 **영화 카드**를 띄움.

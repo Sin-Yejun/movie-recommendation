@@ -41,4 +41,8 @@ COPY . .
 
 ENV PYTHONUNBUFFERED=1
 
-CMD ["./wait-for-it.sh"]
+# Cloud Run에서는 wait-for-it 불필요 (단일 컨테이너)
+# CMD ["./wait-for-it.sh"]
+
+# 직접 포트 8080으로 실행
+CMD ["uvicorn", "src.server:app", "--host", "0.0.0.0", "--port", "8080"]

@@ -1,203 +1,390 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Filmio - 영화 추천 플랫폼</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css" />
+    <!-- 폰트: Pretendard & Google Fonts -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- 아이콘: FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/12.2.0/markdown-it.min.js"></script>
     <script>
-        async function sendMessage() {
+      async function sendMessage() {
+        // 상대 경로 사용 (배포/로컬 모두 호환)
+        const url = "/chat";
+        const message = document.getElementById("message").value;
+        const responseContainer = document.getElementById("response");
+        const recContainer = document.getElementById("recommendations"); // 추천 영화 컨테이너
 
-            const url = "https://movie-recommendation-production.up.railway.app/chat";
-            //const url = "http://127.0.0.1:8000/chat";
-            const message = document.getElementById("message").value;
-            const responseContainer = document.getElementById("response");
-            const submitButton = document.getElementById("submit-button");
+        if (!message) return;
 
-            submitButton.disabled = true; // 버튼 비활성화
-            submitButton.style.opacity = "0.5"; // 버튼 흐리게
-            submitButton.innerText = "생성 중...";
-            responseContainer.innerHTML = '<span id="loading-text" style="font-style: italic; color: gray;"></span>';
-            startLoadingAnimation(); // 로딩 애니메이션 시작
-            const md = window.markdownit();
-            try {
-                const response = await fetch(url, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ query: message })
-                });
+        // 버튼 비활성화 (중복 클릭 방지)
+        const submitButton = document.getElementById("submit-button"); // Assuming an ID for the submit button
+        submitButton.disabled = true;
+        submitButton.style.opacity = "0.5";
+        submitButton.style.cursor = "not-allowed";
 
-                if (!response.body) throw new Error("스트리밍 응답 없음");
+        // 로딩 표시: 답변 영역에 표시
+        responseContainer.innerHTML = `
+            <div style="text-align: center; color: #94a3b8; margin-top: 20px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                <p>AI가 답변을 생성하고 있습니다...</p>
+            </div>
+        `;
+        recContainer.innerHTML = ""; // 이전 추천 초기화
 
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let partial = "";
+        const md = window.markdownit();
 
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-                    stopLoadingAnimation(); // 로딩 애니메이션 중지
-                    const chunk = decoder.decode(value, { stream: true });
-                    partial += chunk;
+        try {
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ input: message }),
+            });
 
-                    // Markdown을 HTML로 변환하여 출력
-                    responseContainer.innerHTML = md.render(partial);
+            if (!response.ok) throw new Error("Network response was not ok");
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let fullText = "";
+            let isRecPart = false;
+            let recJsonStr = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                fullText += chunk;
+
+                // 추천 데이터 구분자 확인 (<<<REC>>>)
+                const splitParts = fullText.split("<<<REC>>>");
+
+                // 1. 답변 부분 (Markdown 렌더링)
+                const answerPart = splitParts[0];
+                responseContainer.innerHTML = md.render(answerPart);
+
+                // 2. 추천 데이터 부분 (아직 전송 중일 수 있음)
+                if (splitParts.length > 1) {
+                    recJsonStr = splitParts[1];
                 }
-            } catch (error) {
-                console.error("Error:", error);
-                responseContainer.innerHTML = "Error: 응답을 가져올 수 없습니다.";
-            } finally {
-                submitButton.disabled = false; // 버튼 다시 활성화
-                submitButton.style.opacity = "1";
-                submitButton.innerText = "🎥 답변 생성";
             }
+
+            // 스트리밍 완료 후 추천 카드 처리
+            if (recJsonStr.trim()) {
+                try {
+                    const recommendations = JSON.parse(recJsonStr.trim());
+                    renderRecommendationCards(recommendations);
+                } catch (e) {
+                    console.error("추천 데이터 파싱 실패:", e);
+                }
+            }
+
+        } catch (error) {
+            responseContainer.innerText = "오류가 발생했습니다: " + error.message;
+        } finally {
+            // 버튼 재활성화
+            submitButton.disabled = false;
+            submitButton.style.opacity = "1";
+            submitButton.style.cursor = "pointer";
+            document.getElementById("message").value = ""; // 입력창 비우기
         }
+    }
 
-        async function loadMovies() {
-            try {
-                const response = await fetch('src/db/movies.json');
-                const movies = await response.json();
+    // 추천 카드 렌더링 함수 분리
+    function renderRecommendationCards(titles) {
+        const recContainer = document.getElementById("recommendations");
+        recContainer.innerHTML = "";
 
-                const gallery = document.querySelector('.image-gallery');
-                gallery.innerHTML = '';
+        const recTitle = document.createElement("h3");
+        recTitle.innerText = "✨ 추천 영화 바로보기";
+        recTitle.style.marginTop = "20px";
+        recTitle.style.textAlign = "left";
+        recContainer.appendChild(recTitle);
 
-                movies.forEach((movie, index) => {
-                    const movieItem = document.createElement('div');
-                    movieItem.classList.add('image-item');
-                    if (index >= 4) movieItem.style.display = "none";
+        const cardWrapper = document.createElement("div");
+        cardWrapper.className = "rec-wrapper";
+        recContainer.appendChild(cardWrapper);
 
-                    movieItem.innerHTML = `
+
+        titles.forEach(title => {
+             // 영화 제목으로 정보 찾기 (allMovies 배열 활용)
+             const movieInfo = allMovies.find(m => m.제목.includes(title)) || { 제목: title, 영화포스터: null };
+             const poster = movieInfo.영화포스터 || "https://via.placeholder.com/150x220?text=No+Image";
+             const rating = movieInfo["관람객 평점"] || "N/A";
+             const audience = movieInfo["관객수"] || "";
+
+             const card = document.createElement("div");
+             card.className = "rec-card";
+             card.innerHTML = `
+                <div class="poster-wrapper"><img src="${poster}"></div>
+                <div class="card-info">
+                    <h4>${movieInfo.제목}</h4>
+                    <div class="rating"><i class="fas fa-star"></i> ${rating}</div>
+                    <div class="audience">${audience}</div>
+                </div>
+             `;
+             card.onclick = () => {
+                 const input = document.getElementById("message");
+                 input.value = `영화 "${movieInfo.제목}" 상세 정보 알려줘`;
+                 input.focus();
+             };
+             cardWrapper.appendChild(card);
+        });
+    }
+
+      async function loadMovies() {
+        try {
+          const response = await fetch("src/db/movies.json");
+          const movies = await response.json();
+
+          const gallery = document.querySelector(".image-gallery");
+          gallery.innerHTML = "";
+
+          movies.forEach((movie, index) => {
+            const movieItem = document.createElement("div");
+            movieItem.classList.add("image-item");
+            if (index >= 4) movieItem.style.display = "none";
+
+            movieItem.innerHTML = `
                         <img src="${movie.영화포스터}" alt="${movie.제목}" onclick="setMovieQuery('${movie.제목}')">
                         <p>${movie.제목}</p>
                     `;
-                    gallery.appendChild(movieItem);
-                });
-                showSlides(0);
-            } catch (error) {
-                console.error("Error loading movies:", error);
-            }
+            gallery.appendChild(movieItem);
+          });
+          showSlides(0);
+        } catch (error) {
+          console.error("Error loading movies:", error);
+        }
+      }
+
+      function setMovieQuery(title) {
+        document.getElementById(
+          "message"
+        ).value = `${title} 영화에 대한 정보 알려줘.`;
+      }
+
+      let currentIndex = 0;
+      function showSlides(index) {
+        const slides = document.querySelectorAll(".image-item");
+        const totalSlides = slides.length;
+        const itemsToShow = 4;
+
+        if (index >= totalSlides) {
+          currentIndex = 0;
+        } else if (index < 0) {
+          currentIndex = totalSlides - itemsToShow;
+        } else {
+          currentIndex = index;
         }
 
-        function setMovieQuery(title) {
-            document.getElementById("message").value = `${title} 영화에 대한 정보 알려줘.`;
-        }
-
-        let currentIndex = 0;
-        function showSlides(index) {
-            const slides = document.querySelectorAll('.image-item');
-            const totalSlides = slides.length;
-            const itemsToShow = 4;
-
-            if (index >= totalSlides) {
-                currentIndex = 0;
-            } else if (index < 0) {
-                currentIndex = totalSlides - itemsToShow;
-            } else {
-                currentIndex = index;
-            }
-
-            slides.forEach((slide, i) => {
-                slide.style.display = (i >= currentIndex && i < currentIndex + itemsToShow) ? 'block' : 'none';
-            });
-        }
-
-        function nextSlides() {
-            showSlides(currentIndex + 4);
-        }
-
-        function prevSlides() {
-            showSlides(currentIndex - 4);
-        }
-
-        // date.txt 파일을 불러와 표시하는 함수
-        async function loadDate() {
-            try {
-                const response = await fetch('src/db/date.txt');
-                if (!response.ok) {
-                    throw new Error("date.txt 파일을 불러오지 못했습니다.");
-                }
-                const dateText = await response.text();
-                document.getElementById("date-display").textContent = dateText;
-            } catch (error) {
-                console.error("Error loading date:", error);
-                document.getElementById("date-display").textContent = "업데이트 날짜를 불러올 수 없습니다.";
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            loadMovies();
-            loadDate();
+        slides.forEach((slide, i) => {
+          slide.style.display =
+            i >= currentIndex && i < currentIndex + itemsToShow
+              ? "block"
+              : "none";
         });
+      }
 
-        let loadingInterval;
+      function nextSlides() {
+        showSlides(currentIndex + 4);
+      }
 
-        function startLoadingAnimation() {
-            const loadingText = document.getElementById("loading-text");
-            let dotCount = 0;
-            loadingText.textContent = "답변 생성 중";
+      function prevSlides() {
+        showSlides(currentIndex - 4);
+      }
 
-            loadingInterval = setInterval(() => {
-                dotCount = (dotCount + 1) % 4; // 0~3까지 반복
-                let dots = '.'.repeat(dotCount);
-                loadingText.textContent = "답변 생성 중" + dots;
-            }, 500); // 0.5초마다 갱신
+      // date.txt 파일을 불러와 표시하는 함수
+      async function loadDate() {
+        try {
+          const response = await fetch("src/db/date.txt");
+          if (!response.ok) {
+            throw new Error("date.txt 파일을 불러오지 못했습니다.");
+          }
+          const dateText = await response.text();
+          document.getElementById("date-display").textContent = dateText;
+        } catch (error) {
+          console.error("Error loading date:", error);
+          document.getElementById("date-display").textContent =
+            "업데이트 날짜를 불러올 수 없습니다.";
         }
+      }
 
-        function stopLoadingAnimation() {
-            clearInterval(loadingInterval);
-            const loadingText = document.getElementById("loading-text");
-            if (loadingText) {
-                loadingText.textContent = "";
-            }
+      document.addEventListener("DOMContentLoaded", () => {
+        loadMovies();
+        loadDate();
+      });
+
+      let loadingInterval;
+
+      function startLoadingAnimation() {
+        const loadingText = document.getElementById("loading-text");
+        let dotCount = 0;
+        loadingText.textContent = "답변 생성 중";
+
+        loadingInterval = setInterval(() => {
+          dotCount = (dotCount + 1) % 4; // 0~3까지 반복
+          let dots = ".".repeat(dotCount);
+          loadingText.textContent = "답변 생성 중" + dots;
+        }, 500); // 0.5초마다 갱신
+      }
+
+      function stopLoadingAnimation() {
+        clearInterval(loadingInterval);
+        const loadingText = document.getElementById("loading-text");
+        if (loadingText) {
+          loadingText.textContent = "";
         }
-
+      }
     </script>
-</head>
+  </head>
 
-<body>
+  <body>
     <header>
-        <div id="date-display">날짜 로드 중...</div>
-        <h1>Filmio</h1>
-        <div class="cinema-links">
-            <a href="https://www.cgv.co.kr/" target="_blank"><img src="src/img/cgv_logo.png" alt="CGV"></a>
-            <a href="https://www.lottecinema.co.kr/" target="_blank"><img src="src/img/lotte_logo.png" alt="롯데시네마"></a>
-            <a href="https://www.megabox.co.kr/" target="_blank"><img src="src/img/megabox_logo.png" alt="메가박스"></a>
-        </div>
+      <div id="date-display">날짜 로드 중...</div>
+      <h1>Filmio</h1>
+      <div class="cinema-links">
+        <a href="https://cgv.co.kr/" target="_blank"
+          ><img src="src/img/cgv_logo.png" alt="CGV"
+        /></a>
+        <a href="https://www.lottecinema.co.kr/NLCHS?referrer=https://www.google.com/" target="_blank"
+          ><img src="src/img/lotte_logo.png" alt="롯데시네마"
+        /></a>
+        <a href="https://www.megabox.co.kr/" target="_blank"
+          ><img src="src/img/megabox_logo.png" alt="메가박스"
+        /></a>
+      </div>
     </header>
 
-    <section class="info-container">
-        <h2>🎬 영화 추천 AI</h2>
-        <p>
-            궁금한 영화를 입력하면 AI가 <strong>줄거리, 리뷰, 출연진</strong> 정보를 알려드려요.<br>
-            예: <em>"요즘 어떤 영화가 재밌어?"</em>, <em>"액션 영화 추천해줘"</em>
-        </p>
-        <p style="margin-top: 0.5em;">
-            🎞️ 아래 포스터를 클릭하면 <strong>해당 영화 질문이 자동 입력</strong>돼요!
-        </p>
+    <div class="main-layout">
+        <!-- [LEFT] Side Panel: Movies & Stats -->
+        <aside class="side-panel">
+            <section class="info-container">
+                <h1>Filmio <span style="font-size: 1rem; color: var(--primary-color);">AI</span></h1>
+                <p class="subtitle">
+                    AI가 최신 <strong><span id="stat-movies">0</span>편</strong>의 영화와 
+                    <strong><span id="stat-reviews">0</span>개</strong>의 실관람객 리뷰를 분석해드립니다.
+                </p>
+            </section>
+
+            <!-- Slider Moved Here -->
+            <section class="slider-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h2 style="font-size: 1.2rem; margin: 0;">🔥 요즘 뜨는 영화</h2>
+                    <!-- Slider controls removed -->
+                </div>
+                <div class="slider-content">
+                    <div class="image-gallery" id="image-gallery">
+                        <div style="color: grey; padding: 20px;">로딩 중...</div>
+                    </div>
+                </div>
+                <!-- ... -->
+
+    <script>
+        // ... (sendMessage function) ...
+
+        let allMovies = [];
+
+        // 영화 데이터 로드 및 그리드 렌더링
+        async function loadMovies() {
+            try {
+                const response = await fetch("src/db/movies.json");
+                if (!response.ok) throw new Error("Failed to load movies.json");
+                
+                allMovies = await response.json();
+                renderMovies(allMovies);
+            } catch (error) {
+                console.error("영화 로딩 실패:", error);
+                document.getElementById("image-gallery").innerHTML = "영화 정보를 불러올 수 없습니다.";
+            }
+        }
+
+        function renderMovies(movies) {
+            const gallery = document.getElementById("image-gallery");
+            gallery.innerHTML = "";
+
+            movies.forEach((movie) => {
+                // 이미지가 없으면 기본값 처리 (필요시)
+                const posterUrl = movie.영화포스터 || "https://via.placeholder.com/200x300?text=No+Image";
+
+                const div = document.createElement("div");
+                div.className = "image-item";
+                div.onclick = () => {
+                    const input = document.getElementById("message");
+                    input.value = `영화 "${movie.제목}"의 줄거리와 관람평 알려줘`;
+                    input.focus();
+                };
+
+                div.innerHTML = `
+                    <img src="${posterUrl}" alt="${movie.제목}" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'"/>
+                    <p>${movie.제목}</p>
+                `;
+                gallery.appendChild(div);
+            });
+        }
         
-    </section>
+        // 초기 로드
+        loadMovies();
+        // ... (fetchStats logic) ...
+    </script>
+        </aside>
 
-    <form onsubmit="event.preventDefault(); sendMessage();">
-        <input type="text" id="message" name="message" placeholder="영화 추천, 줄거리, 리뷰, 배우 정보 등 무엇이든 질문하세요!
-        ." required>
-        <button type="submit" id="submit-button">🎥 답변 생성</button>
-    </form>
+        <!-- [RIGHT] Chat Panel -->
+        <main class="chat-panel">
+            <div class="chat-header">
+                <h2>AI 영화 큐레이터</h2>
+                <p>무엇이든 물어보세요. 줄거리, 리뷰, 배우 정보까지 알려드려요.</p>
+            </div>
 
-    <section class="response-container">
-        <h2>답변</h2>
-        <div id="response"></div>
-    </section>
+            <div class="chat-window">
+                 <div class="response-container">
+                    <div id="response">
+                        <div class="empty-state">
+                            <i class="fas fa-film" style="font-size: 3rem; margin-bottom: 1rem; color: #334155;"></i>
+                            <p>궁금한 영화나 장르를 물어보세요!<br>"반전 있는 스릴러 추천해줘"</p>
+                        </div>
+                    </div>
+                    <!-- Recommendations will be injected here via JS -->
+                    <div id="recommendations" class="rec-wrapper"></div>
+                </div>
+            </div>
 
-    <section class="slider-container">
-        <h2>현재 상영 중인 영화</h2>
-        <div class="slider-content">
-            <button class="slider-button" onclick="prevSlides()">&#10094;</button>
-            <div class="image-gallery"></div>
-            <button class="slider-button" onclick="nextSlides()">&#10095;</button>
-        </div>
-    </section>
-</body>
+            <form onsubmit="event.preventDefault(); sendMessage();" class="input-area">
+                <input
+                    type="text"
+                    id="message"
+                    name="message"
+                    placeholder="ex. 웡카 평점 어때? / 가족이랑 볼만한 영화 추천"
+                    required
+                    autocomplete="off"
+                />
+                <button type="submit" id="submit-button"><i class="fas fa-paper-plane"></i></button>
+            </form>
+        </main>
+    </div>
 
+    <!-- Script Logic Updates -->
+    <script>
+        // 통계 데이터 가져오기 (API Call)
+        async function fetchStats() {
+            try {
+                const url = "/stats";
+                const response = await fetch(url);
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById("stat-movies").innerText = data.movie_count.toLocaleString();
+                    document.getElementById("stat-reviews").innerText = data.review_count.toLocaleString();
+                }
+            } catch (error) {
+                console.error("통계 로드 실패:", error);
+            }
+        }
+        fetchStats();
+    </script>
+  </body>
 </html>
