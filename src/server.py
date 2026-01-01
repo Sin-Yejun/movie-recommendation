@@ -54,19 +54,26 @@ async def rate_limit_middleware(request: Request, call_next):
         # 2. 하루 총량 제한 체크 (Money Saver)
         if daily_request_count >= DAILY_LIMIT:
             print(f"🚫 일일 한도 초과! ({daily_request_count}/{DAILY_LIMIT})")
-            return StreamingResponse(
+            resp = StreamingResponse(
                 iter([f"죄송합니다. 오늘 서버의 AI 예산({DAILY_LIMIT}회)이 모두 소진되었습니다. 내일 다시 와주세요! 😢"]), 
                 media_type="text/plain", 
                 status_code=429
             )
+            resp.headers["Access-Control-Allow-Origin"] = "*"
+            return resp
 
         # 3. IP별 도배 방지 (2초 쿨타임)
         client_ip = request.client.host
         current_time = time.time()
         
         last_time = client_last_request.get(client_ip, 0)
-        if current_time - last_time < 2.0:
-            return StreamingResponse(iter(["너무 빨라요! 2초만 쉬었다 질문해주세요. 🐢"]), media_type="text/plain", status_code=429)
+        resp = StreamingResponse(
+                iter(["너무 빨라요! 2초만 쉬었다 질문해주세요. 🐢"]),
+                media_type="text/plain",
+                status_code=429
+            )
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp
         
         client_last_request[client_ip] = current_time
         
@@ -187,7 +194,9 @@ async def chat_endpoint(request: ChatRequest):
     try:
         query_vec = query_embedding(query)
     except Exception as e:
-        return StreamingResponse(iter([f"임베딩 에러: {e}"]), media_type="text/plain")
+        resp = StreamingResponse(iter([f"임베딩 에러: {e}"]), media_type="text/plain")
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp
 
     # 2. FAISS 검색
     try:
@@ -216,11 +225,17 @@ async def chat_endpoint(request: ChatRequest):
                     candidates.append(movie_data)
 
     except Exception as e:
-        print(f"검색 에러: {e}")
-        return StreamingResponse(iter([f"검색 중 에러 발생: {e}"]), media_type="text/plain")
+        resp = StreamingResponse(iter([f"검색 중 에러 발생: {e}"]), media_type="text/plain")
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp
 
     # 4. 스트리밍 응답 반환
-    return StreamingResponse(generate_ai_response_unified(query, candidates), media_type="text/plain")
+    resp = StreamingResponse(
+        generate_ai_response_unified(query, candidates),
+        media_type="text/plain"
+    )
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
 
 
 from fastapi.responses import FileResponse, StreamingResponse
