@@ -76,14 +76,19 @@ async def rate_limit_middleware(request: Request, call_next):
         current_time = time.time()
         
         last_time = client_last_request.get(client_ip, 0)
-        resp = StreamingResponse(
+        
+        # 2초 미만 요청 시 차단
+        if current_time - last_time < 2:
+            resp = StreamingResponse(
                 iter(["너무 빨라요! 2초만 쉬었다 질문해주세요. 🐢"]),
                 media_type="text/plain",
                 status_code=429
             )
-        resp.headers["Access-Control-Allow-Origin"] = "*"
-        return resp
+            # CORS 헤더 수동 추가 (미들웨어 필터 전이라 필요할 수 있음)
+            resp.headers["Access-Control-Allow-Origin"] = "https://sin-yejun.github.io"
+            return resp
         
+        # 정상 요청 처리: 시간 기록 업데이트
         client_last_request[client_ip] = current_time
         
         # 카운트 증가 (본 게임 시작)
