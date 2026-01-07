@@ -13,15 +13,24 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # 환경설정
-client = OpenAI()
+# OpenAI 클라이언트 초기화 (API 키가 없어도 서버가 죽지 않도록 예외 처리)
+try:
+    client = OpenAI()
+except Exception as e:
+    print(f"Warning: OpenAI API Key not found. Chat features will not work. Error: {e}")
+    client = None
 
 # FastAPI 앱 초기화
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 모든 도메인에서의 요청을 허용합니다.
-    allow_credentials=False, # 쿠키/인증정보를 사용하지 않으므로 False로 설정해야 "*"와 함께 사용 가능합니다.
-    allow_methods=["*"],
+    allow_origins=[
+        "https://sin-yejun.github.io",  # 실제 배포된 프론트엔드 주소 (Github Pages)
+        "http://127.0.0.1:5500",        # 로컬 테스트용
+        "http://localhost:5500"
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -92,10 +101,28 @@ if not os.path.exists(index_path):
     index_path = os.path.join(BASE_DIR, "db", "movie_index.faiss")
 
 # 데이터 로드
-index = faiss.read_index(index_path)
-with open(os.path.join(BASE_DIR, "db", "movies.json"), "r", encoding="utf-8") as f:
-    movies = json.load(f)
-movie_reviews = np.load(os.path.join(BASE_DIR, "db/movie_reviews.npy"), allow_pickle=True)
+try:
+    index = faiss.read_index(index_path)
+    print(f"✅ FAISS 인덱스 로드 성공: {index_path}")
+except Exception as e:
+    print(f"⚠️ FAISS 인덱스 로드 실패 (검색 기능 제한됨): {e}")
+    index = None
+
+try:
+    with open(os.path.join(BASE_DIR, "db", "movies.json"), "r", encoding="utf-8") as f:
+        movies = json.load(f)
+    print("✅ 영화 메타데이터 로드 성공")
+except Exception as e:
+    print(f"⚠️ 영화 데이터 로드 실패: {e}")
+    movies = []
+
+try:
+    movie_reviews = np.load(os.path.join(BASE_DIR, "db/movie_reviews.npy"), allow_pickle=True)
+    print("✅ 리뷰 데이터 로드 성공")
+except Exception as e:
+    print(f"⚠️ 리뷰 데이터 로드 실패: {e}")
+    movie_reviews = np.array([])
+
 movie_titles = [movie["제목"] for movie in movies if "제목" in movie]
 
 # 임베딩 함수
@@ -200,6 +227,9 @@ async def chat_endpoint(request: ChatRequest):
 
     # 2. FAISS 검색
     try:
+        if index is None:
+            raise Exception("FAISS 인덱스가 로드되지 않았습니다.")
+            
         distances, indices = index.search(query_vec, k=5)
         
         candidates = []

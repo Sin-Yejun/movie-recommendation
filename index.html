@@ -14,7 +14,7 @@
     <script>
       async function sendMessage() {
         // 상대 경로 사용 (배포/로컬 모두 호환)
-        const url = "https://filmio-944565385934.asia-northeast3.run.app/chat";
+        const url = "https://movie-recommendation-server-ajob4uxiyq-du.a.run.app/chat";
         const message = document.getElementById("message").value;
         const responseContainer = document.getElementById("response");
         const recContainer = document.getElementById("recommendations"); // 추천 영화 컨테이너
@@ -373,7 +373,7 @@
         // 통계 데이터 가져오기 (API Call)
         async function fetchStats() {
             try {
-                const url = "https://filmio-944565385934.asia-northeast3.run.app/stats";
+                const url = "https://movie-recommendation-server-ajob4uxiyq-du.a.run.app/stats";
                 const response = await fetch(url);
                 if (response.ok) {
                     const data = await response.json();
