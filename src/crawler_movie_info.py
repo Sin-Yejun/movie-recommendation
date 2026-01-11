@@ -136,10 +136,12 @@ while True:
         actors = "N/A" # 상세 페이지 안에서 수집 시도 권장
 
         # 개봉 정보 클릭 (기본 정보 탭)
+        info_tab_clicked = False
         try:
             btn_info = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[1]/div[3]/div/div/ul/li[2]/a')
             btn_info.click()
             time.sleep(1)
+            info_tab_clicked = True
         except:
             pass
 
@@ -170,14 +172,14 @@ while True:
         }
         movies_dict[title] = new_movie
 
-        # 뒤로 가기 (상세정보 탭 -> 통합검색) - 탭 클릭했으므로 2번? 아니 1번?
-        # 기존 코드: 상세페이지 진입(1) -> 정보탭 클릭(1) -> 목록(back 2번)
+        # 뒤로 가기 (상세정보 탭 -> 통합검색)
         driver.back()
         time.sleep(0.5)
-        # 만약 정보탭을 클릭 안했으면(기존영화) 1번만 back하면 됨.
-        # 근데 위에서 정보탭 클릭함.
-        driver.back() 
-        time.sleep(0.5)
+        
+        # 만약 정보탭을 클릭했었다면 한 번 더 뒤로 가야 목록으로 복귀
+        if info_tab_clicked:
+            driver.back() 
+            time.sleep(0.5)
 
         i += 1
     except Exception as e:

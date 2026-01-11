@@ -250,7 +250,7 @@ async def chat_endpoint(request: ChatRequest):
         # 3. 키워드 검색 (보완)
         for movie in movies:
             # 단순 포함 여부 체크 (중복 제외)
-            if query in movie["제목"]:
+            if movie["제목"] in query:
                 # 이미 candidates에 있는지 확인 (제목 기준)
                 if not any(c["제목"] == movie["제목"] for c in candidates):
                     movie_data = movie.copy()
@@ -295,6 +295,21 @@ async def serve_images(filename: str):
     if os.path.exists(image_path):
         return FileResponse(image_path)
     return {"error": "Image not found"}
+
+# 데이터 파일 서빙 (src/db 폴더 - movies.json, date.txt 등)
+@app.get("/src/db/{filename}")
+async def serve_db_files(filename: str):
+    # 보안상 허용된 파일 확장자만 제공
+    ALLOWED_EXTENSIONS = {".json", ".txt", ".csv"}
+    _, ext = os.path.splitext(filename)
+    
+    if ext not in ALLOWED_EXTENSIONS:
+        return {"error": "Access denied"}
+
+    file_path = os.path.join(BASE_DIR, "db", filename)
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    return {"error": "File not found"}
 
 # 통계 API
 @app.get("/stats")
