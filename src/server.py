@@ -26,6 +26,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://sin-yejun.github.io",  # 실제 배포된 프론트엔드 주소 (Github Pages)
+        "https://movie.yejunsin.dev",   # 서브도메인 
         "http://127.0.0.1:5500",        # 로컬 테스트용
         "http://localhost:5500"
     ],
