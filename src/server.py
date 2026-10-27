@@ -6,6 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 import faiss
 import numpy as np
+import pandas as pd
+import io
+import urllib.request
 import json
 import uvicorn
 import random
@@ -100,36 +103,45 @@ async def rate_limit_middleware(request: Request, call_next):
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# 디버깅: 경로 확인 (상대 경로 우선 시도)
-# FAISS C++ 라이브러리가 윈도우 한글 경로를 못 읽는 이슈 대응
-index_path = "src/db/movie_index.faiss"
-if not os.path.exists(index_path):
-    index_path = os.path.join(BASE_DIR, "db", "movie_index.faiss")
+# 데이터는 매일 GitHub Actions가 저장소에 커밋하므로, 재배포 없이 저장소에서 주기적으로 다시 받아온다
+DATA_URL = os.getenv("DATA_URL", "https://raw.githubusercontent.com/Sin-Yejun/movie-recommendation/master/src/db")
+RELOAD_SECONDS = 3600
 
-# 데이터 로드
-try:
-    index = faiss.read_index(index_path)
-    print(f"✅ FAISS 인덱스 로드 성공: {index_path}")
-except Exception as e:
-    print(f"⚠️ FAISS 인덱스 로드 실패 (검색 기능 제한됨): {e}")
-    index = None
+index = None
+movies = []
+movie_reviews = np.array([])
+last_loaded = 0.0
 
-try:
-    with open(os.path.join(BASE_DIR, "db", "movies.json"), "r", encoding="utf-8") as f:
-        movies = json.load(f)
-    print("✅ 영화 메타데이터 로드 성공")
-except Exception as e:
-    print(f"⚠️ 영화 데이터 로드 실패: {e}")
-    movies = []
+def read_data(name):
+    try:
+        return urllib.request.urlopen(f"{DATA_URL}/{name}", timeout=10).read()
+    except Exception as e:
+        print(f"⚠️ 원격 {name} 로드 실패, 이미지에 포함된 파일 사용: {e}")
+        with open(os.path.join(BASE_DIR, "db", name), "rb") as f:
+            return f.read()
 
-try:
-    movie_reviews = np.load(os.path.join(BASE_DIR, "db/movie_reviews.npy"), allow_pickle=True)
-    print("✅ 리뷰 데이터 로드 성공")
-except Exception as e:
-    print(f"⚠️ 리뷰 데이터 로드 실패: {e}")
-    movie_reviews = np.array([])
+def load_data():
+    global index, movies, movie_reviews, last_loaded
+    last_loaded = time.time()  # 실패해도 매 요청마다 재시도하지 않도록 먼저 갱신
+    try:
+        # 파일 경로 대신 bytes로 읽어 FAISS의 윈도우 한글 경로 이슈도 피함
+        new_index = faiss.deserialize_index(np.frombuffer(read_data("movie_index.faiss"), dtype=np.uint8))
+        new_movies = json.loads(read_data("movies.json"))
+        # npy(pickle) 대신 csv: 네트워크에서 받은 pickle은 로드 시 코드 실행 위험
+        new_reviews = pd.read_csv(io.BytesIO(read_data("movie_reviews.csv")), encoding="utf-8-sig").to_numpy()
+    except Exception as e:
+        print(f"⚠️ 데이터 로드 실패, 기존 데이터 유지: {e}")
+        return
 
-movie_titles = [movie["제목"] for movie in movies if "제목" in movie]
+    # 인덱스 i번째 벡터 = movies[i] 이므로 개수가 다르면 깨진 데이터
+    if new_index.ntotal != len(new_movies) or not new_movies:
+        print(f"⚠️ 인덱스({new_index.ntotal})와 영화({len(new_movies)}) 개수 불일치, 기존 데이터 유지")
+        return
+
+    index, movies, movie_reviews = new_index, new_movies, new_reviews
+    print(f"✅ 데이터 로드 성공: 영화 {len(movies)}개, 리뷰 {len(movie_reviews)}개")
+
+load_data()
 
 # 임베딩 함수
 def query_embedding(text):    
@@ -222,6 +234,10 @@ class ChatRequest(BaseModel):
 async def chat_endpoint(request: ChatRequest):
     query = request.input
     print(f"사용자 입력: {query}")
+
+    # shortcut: 요청 처리 중 동기로 다운로드(시간당 1회, 1~2초), 트래픽이 늘면 백그라운드 갱신으로 전환
+    if time.time() - last_loaded > RELOAD_SECONDS:
+        load_data()
 
     # 1. 임베딩 생성
     try:

@@ -1,10 +1,10 @@
 # 최신 영화 8개
 
 import os
+import sys
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.action_chains import ActionChains
 import time
 from selenium.webdriver.chrome.options import Options
 import json
@@ -58,176 +58,76 @@ else:
     existing_df = pd.DataFrame(columns=['제목', '작성자유형', '평점', '리뷰'])
 
 
-# 크롤링 시작
+# 크롤링 시작: 목록에서 제목·링크를 먼저 모은 뒤 각 페이지로 직접 이동 (클릭/뒤로가기 X)
+# 네이버는 클래스명에 빌드 해시가 붙으므로(_commentBody_1d1t6_115 등) 접두어/라벨 텍스트 기준으로 찾는다
 driver.get("https://search.naver.com/search.naver?query=영화")
 time.sleep(2)
 
-k = 1  # 현재 페이지 내 영화 순번
+cards = []
+for img in driver.find_elements(By.CSS_SELECTOR, '[id^="m_dss_movie_img"]'):
+    link = img.find_elements(By.XPATH, './ancestor::a[1]')
+    title = (img.get_attribute("alt") or "").strip()
+    if link and title in valid_titles:
+        cards.append((title, link[0].get_attribute("href")))
+print(f"리뷰 수집 대상 영화 {len(cards)}개")
+if not cards:
+    driver.quit()
+    sys.exit("리뷰를 수집할 영화를 찾지 못했습니다 (네이버 페이지 구조 변경 의심).")
+
 new_reviews = []  # 새로 수집된 리뷰
+MAX_PAGES = 20    # 탭당 최대 페이지 수 (페이지당 5개)
 
-categories = [
-    ('실관람객', '//ul/li/a/span[contains(text(), "실관람객")]', '//*[@id="main_pack"]/div[3]/div[2]/div/div/div[4]/div[4]'),
-    ('네티즌', '//ul/li/a/span[contains(text(), "네티즌")]', '//*[@id="main_pack"]/div[3]/div[2]/div/div/div[5]/div[4]'),
-    ('평론가', '//ul/li/a/span[contains(text(), "평론가")]', '//*[@id="main_pack"]/div[3]/div[2]/div/div/div[6]/div')
-]
-
-while True:
+for k, (title, href) in enumerate(cards, 1):
     try:
-        # 상세 페이지 클릭
-        try:
-            btn = driver.find_element(By.XPATH, f'//*[@id="main_pack"]/div[3]/div[2]/div/div/div/div[1]/div[1]/div[{k}]/div[1]/a')
-            driver.execute_script("arguments[0].click();", btn)
-        except:
-            # 더 이상 클릭할 영화가 없으면 종료
-            break
-            
+        print(f"\n{k}번째 영화 제목: {title}")
+        driver.get(href)
         time.sleep(1.5)
 
-        # 상세 페이지에서 제목 가져오기 (Review ID 일관성 유지)
-        try:
-            title_element = driver.find_element(By.XPATH, '//*[@id="main_pack"]/div[3]/div[1]/div[1]/h2/span[1]/strong')
-            title = title_element.text.strip()
-            print(f"\n{k}번째 영화 제목: {title}")
-        except Exception as e:
-            print(f"{k}번째 영화 제목 로드 실패 ({e}). 건너뜁니다.")
-            driver.back() 
-            time.sleep(1)
-            k += 1
-            continue
+        # 평점 페이지 (상세 카드의 '평점 남기기' 링크 = "{제목} 평점" 검색)
+        link = driver.find_elements(By.XPATH, '//a[normalize-space()="평점 남기기"]')
+        driver.get(link[0].get_attribute("href") if link else f"https://search.naver.com/search.naver?query={title} 평점")
+        time.sleep(1.5)
 
-        # 관람평 메뉴 클릭
-        try:
-            driver.find_element(By.XPATH, f'//*[@id="main_pack"]/div[3]/div[1]/div[3]/div/div/ul/li[5]/a').click()
-            time.sleep(1)
-        except:
-            print(f"관람평 탭 못 찾음: {title}")
-            driver.back() 
-            time.sleep(0.5)
-            k += 1
-            continue
-
-        idx = 4
-        for category, tab_xpath, scroll_xpath in categories:
-            print(category,'데이터 수집중...')
-            # 탭 클릭
+        for category in ['실관람객', '네티즌', '평론가']:
+            print(category, '데이터 수집중...')
             try:
-                driver.find_element(By.XPATH, tab_xpath).click()
-                time.sleep(2)
-            except:
+                tab = driver.find_element(By.XPATH, f'//li[@role="tab"]//span[normalize-space()="{category}"]')
+                driver.execute_script("arguments[0].click();", tab)
+                time.sleep(1.5)
+            except Exception:
+                print(f"  -> {category} 탭 없음")
                 continue
 
-            # 스포일러 토글 누르기
-            if idx < 6:
-                try:
-                    button = driver.find_element(By.XPATH, f'//*[@id="main_pack"]/div[3]/div[2]/div/div/div[{idx}]/div[2]/div[2]/button/span[1]')
-                    driver.execute_script("arguments[0].click();", button)
-                    time.sleep(1)
-                except:
-                    pass
-                idx += 1
+            # 최신순 정렬: 새 리뷰가 앞에 오므로, 전부 중복인 페이지가 나오면 멈춘다
+            for sort_btn in driver.find_elements(By.XPATH, '//button[normalize-space()="최신순"]'):
+                driver.execute_script("arguments[0].click();", sort_btn)
+                time.sleep(1)
 
-            # 스크롤 가능한 영역 찾기
-            try:
-                scrollable_div = driver.find_element(By.XPATH, scroll_xpath)
-            except:
-                continue
-            
-            # 스크롤 (너무 많이 하면 시간이 오래 걸리므로 적당히 제한을 두거나, 기존 로직 유지)
-            # 여기서는 기존 로직 유지
-            last_scroll_top = -1
-            retry_scroll = 0
-            while True:
-                last_scroll_top = driver.execute_script("return arguments[0].scrollTop;", scrollable_div)
-                driver.execute_script("arguments[0].scrollTop += arguments[0].offsetHeight;", scrollable_div)
-                time.sleep(0.5)
-                new_scroll_top = driver.execute_script("return arguments[0].scrollTop;", scrollable_div)
-                if new_scroll_top == last_scroll_top:
-                    retry_scroll += 1
-                    if retry_scroll > 2: # 2번 더 시도해보고 진짜 끝이면 종료
-                        break
-                else:
-                    retry_scroll = 0
-
-            # 리뷰 크롤링
-            i = 1
-            
-            # 페이지 내 모든 리뷰 요소 가져오기 (비효율적일 수 있으나 DOM 변화 감지 어려우므로 루프)
-            # 기존 로직: `last` 변수로 중복 체크.
-            # 개선: `existing_reviews_set` 으로 중복 체크.
-            
-            items_list = []
-            scores_list = []
-            
-            # XPath 패턴 분석: ul/li[{i}]
-            # 한 번에 elements 가져오는 게 빠를 수 있음.
-            if category == '평론가':
-                items = driver.find_elements(By.XPATH, f'{scroll_xpath}/ul/li/div[3]/span')
-                # 평론가는 점수 위치가 다를 수 있음. 기존 코드 참고:
-                # scores = driver.find_elements(By.XPATH, f'{scroll_xpath}/ul/li[{i}]/div[1]/div/div[2]') <- 루프 안에서 i 사용
-                # 평론가 점수는 보통 div[2]/div/div ... 
-                # 기존 코드가 좀 불안정해 보이지만 일단 기존 XPATH 구조 유지하되 루프 방식 개선
-            else:
-                pass
-            
-            # 기존 루프 방식 유지하되 중복 체크 추가
-            consecutive_dupes = 0 # 연속 중복 횟수 (너무 많으면 이미 수집한 구간이라 판단하고 break)
-            
-            while True:
-                try:
-                    # '더보기' 버튼 클릭 (긴 리뷰)
+            for page in range(MAX_PAGES):
+                page_new = 0
+                for body in driver.find_elements(By.XPATH, '//p[contains(@class, "_commentBody_")]'):
+                    review_text = body.get_attribute("textContent").strip()
                     try:
-                        btn_more = driver.find_element(By.XPATH, f'{scroll_xpath}/ul/li[{i}]/div[2]/div/button')
-                        driver.execute_script("arguments[0].click();", btn_more)
-                    except:
-                        pass
-                    
-                    review_text_elem = None
-                    score_elem = None
-                    
-                    if category == '평론가':
-                        review_text_elem = driver.find_element(By.XPATH, f'{scroll_xpath}/ul/li[{i}]/div[3]/span')
-                        score_elem = driver.find_element(By.XPATH, f'{scroll_xpath}/ul/li[{i}]/div[1]/div/div[2]')
-                    else:
-                        review_text_elem = driver.find_element(By.XPATH, f'{scroll_xpath}/ul/li[{i}]/div[2]/div/span')
-                        score_elem = driver.find_element(By.XPATH, f'{scroll_xpath}/ul/li[{i}]/div[1]/div/div[2]')
-                    
-                    review_text = review_text_elem.text.strip()
-                    try:
-                        score = float(score_elem.text.split('\n')[-1])
-                    except:
+                        item = body.find_element(By.XPATH, './ancestor::div[.//strong[contains(@class, "_score_")]][1]')
+                        score = float(item.find_element(By.XPATH, './/strong[contains(@class, "_score_")]').get_attribute("textContent"))
+                    except Exception:
                         score = 0.0
-                    
-                    # 중복 체크 키
-                    # float 비교는 위험하므로 문자열 포맷팅
-                    review_key = (title, category, score, review_text) # 값 비교
-                     # 주의: score가 float라서 10.0 과 10 은 다를 수 있음.
-                     # 하지만 들어갈때 float로 변환했음.
-                    
-                    # 튜플 비교 (Pandas to_records도 float는 float로 둠)
-                    if review_key in existing_reviews_set:
-                        consecutive_dupes += 1
-                        if consecutive_dupes > 10: # 10개 연속 중복이면 더 이상 볼 필요 없음
-                            print(f"  -> 이전에 수집된 리뷰 구간입니다. 다음 탭으로 이동.")
-                            break
-                    else:
-                        new_reviews.append([title, category, score, review_text])
-                        existing_reviews_set.add(review_key) # 이번 실행 내에서도 중복 방지
-                        consecutive_dupes = 0
-                    
-                    i += 1
-                except:
-                    # 더 이상 li가 없으면
-                    break
 
-        k += 1
-        driver.back()
-        time.sleep(0.5)
-        driver.back()
-        time.sleep(0.5)
-        
+                    review_key = (title, category, score, review_text)
+                    if review_text and review_key not in existing_reviews_set:
+                        new_reviews.append([title, category, score, review_text])
+                        existing_reviews_set.add(review_key)  # 이번 실행 내에서도 중복 방지
+                        page_new += 1
+
+                if page_new == 0:
+                    break  # 이전에 수집된 구간
+                next_btn = driver.find_elements(By.CSS_SELECTOR, 'button.cmm_pg_next')
+                if not next_btn or not next_btn[0].is_enabled():
+                    break  # 마지막 페이지
+                driver.execute_script("arguments[0].click();", next_btn[0])
+                time.sleep(1)
     except Exception as e:
-        print(f"{k} 페이지 오류 또는 크롤링 종료: {e}")
-        break
+        print(f"  -> {title} 리뷰 수집 중 에러 발생, 건너뜁니다: {e}")
 
 print(f"\n크롤링 완료. 새로 추가된 리뷰 개수: {len(new_reviews)}")
 driver.quit()

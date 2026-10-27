@@ -1,4 +1,6 @@
 #!/bin/bash
+# 한 단계라도 실패하면 즉시 중단 (깨진 데이터를 커밋하지 않고, Actions에 실패로 표시)
+set -e
 
 # selenium이 뜰 때까지 대기
 until curl -s http://selenium:4444/wd/hub/status | grep -q "ready"; do
