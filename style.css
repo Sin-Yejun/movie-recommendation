@@ -300,6 +300,21 @@ body, .main-layout {
 #response li { margin-bottom: 8px; }
 
 /* --- Recommendations (Horizontal Scroll) --- */
+/* 대화 스레드: 사용자 질문 말풍선 + AI 답변 */
+.user-msg {
+    width: fit-content;
+    max-width: 80%;
+    margin: 24px 0 12px auto;
+    padding: 10px 16px;
+    border-radius: 16px 16px 4px 16px;
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    color: #fff;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.user-msg:first-child { margin-top: 0; }
+.ai-msg { animation: fadeIn 0.5s ease; }
+
 .rec-wrapper {
     display: flex;
     gap: 15px;

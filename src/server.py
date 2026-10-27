@@ -10,6 +10,7 @@ import pandas as pd
 import io
 import urllib.request
 import json
+from typing import Literal
 import uvicorn
 import random
 from dotenv import load_dotenv
@@ -177,14 +178,19 @@ class AIResponse(BaseModel):
     recommendations: list[str] = Field(description="답변에서 추천하거나 언급한 영화들의 정확한 제목 리스트")
 
 # 통합된 답변 생성 함수 (Single-Shot)
-async def generate_ai_response_unified(query, candidate_movies):
+async def generate_ai_response_unified(query, candidate_movies, history):
     """
-    통합 RAG (스트리밍 버전): 검색된 영화 정보를 바탕으로 답변을 "스트리밍"으로 생성.
+    통합 RAG (스트리밍 버전): 검색된 영화 정보와 이전 대화를 바탕으로 답변을 "스트리밍"으로 생성.
     마지막에 <<<REC>>> 구분자를 쓰고 추천 영화 목록(JSON)을 붙임.
     """
     context_text = ""
     for idx, movie in enumerate(candidate_movies):
-        context_text += f"{idx+1}. {movie['제목']} (장르: {movie.get('장르', 'N/A')}, 평점: {movie.get('관람객 평점', 'N/A')})\n"
+        context_text += (
+            f"{idx+1}. {movie['제목']} (장르: {movie.get('장르', 'N/A')}, 평점: {movie.get('관람객 평점', 'N/A')}, "
+            f"상영 시간: {movie.get('상영 시간', 'N/A')}, 개봉일: {movie.get('개봉일', 'N/A')}, "
+            f"관객수: {movie.get('관객수', 'N/A')}, 박스오피스: {movie.get('급상승 순위', 'N/A')})\n"
+        )
+        context_text += f"   출연진: {movie.get('출연진', 'N/A')[:150]}\n"
         context_text += f"   줄거리: {movie.get('줄거리', 'N/A')[:200]}...\n"
         if "reviews" in movie and movie["reviews"]:
              # 리뷰 3개를 연결해서 제공 (각 80자 제한)
@@ -192,17 +198,18 @@ async def generate_ai_response_unified(query, candidate_movies):
              context_text += f"   [관람객 반응]: {reviews_summary}\n"
         context_text += "\n"
 
+    # 사용자 입력은 system 프롬프트에 끼워 넣지 않고 user 메시지로 분리 (프롬프트 인젝션 완화)
     system_prompt = f"""
-    너는 영화 추천 전문가 'Filmio'야.
-    사용자 질문: "{query}"
+    너는 영화 추천 전문가 'Filmio'야. 사용자와 대화를 이어가며 답해.
 
     [후보 영화 목록]
     {context_text}
 
     [지시사항]
     1. 사용자의 질문에 대해 친절하고 전문적으로 답변해줘. (마크다운 사용 가능)
-    2. 후보 영화 목록을 참고하되, 질문과 관련 없는 영화는 언급하지 마.
-    3. 답변 끝에 **반드시** 추천하거나 언급한 영화 제목들을 아래 형식으로 붙여줘.
+    2. 이전 대화의 맥락을 반영해. "그거", "다른 거", "더 밝은 거" 같은 표현은 앞선 대화를 기준으로 해석해.
+    3. 후보 영화 목록을 참고하되, 질문과 관련 없는 영화는 언급하지 마. 목록에 없는 영화 정보는 지어내지 마.
+    4. 답변 끝에 **반드시** 추천하거나 언급한 영화 제목들을 아래 형식으로 붙여줘.
        (이 부분은 사용자가 볼 수 없게 처리될 거야)
 
     [출력 포맷 예시]
@@ -213,7 +220,7 @@ async def generate_ai_response_unified(query, candidate_movies):
     try:
         stream = client.responses.create(
             model="gpt-5-mini",
-            input=[{"role": "user", "content": system_prompt}],
+            input=[{"role": "system", "content": system_prompt}, *history, {"role": "user", "content": query}],
             reasoning={"effort": "minimal"},
             stream=True
         )
@@ -227,13 +234,28 @@ async def generate_ai_response_unified(query, candidate_movies):
 
 # --- [API Endpoints] ---
 
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]  # 클라이언트가 system 역할을 주입하지 못하도록 제한
+    content: str
+
 class ChatRequest(BaseModel):
-    input: str
+    input: str = Field(max_length=1000)
+    history: list[ChatMessage] = []  # 서버는 대화를 저장하지 않음 (Cloud Run 인스턴스는 언제든 바뀜)
+
+# 컨텍스트 관리: 최근 3턴(질문+답변 6개)만, 메시지당 1500자까지만 LLM에 전달해 비용·지연 상한을 둔다
+MAX_HISTORY_MESSAGES = 6
+MAX_MESSAGE_CHARS = 1500
 
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
     query = request.input
-    print(f"사용자 입력: {query}")
+    history = [{"role": m.role, "content": m.content[:MAX_MESSAGE_CHARS]} for m in request.history[-MAX_HISTORY_MESSAGES:]]
+    print(f"사용자 입력: {query} (이전 메시지 {len(history)}개)")
+
+    # "그거 말고 밝은 거" 같은 이어지는 질문은 단독으로는 검색 맥락이 없으므로 직전 질문과 합쳐 검색
+    prev_question = next((m["content"] for m in reversed(history) if m["role"] == "user"), "")
+    prev_answer = next((m["content"] for m in reversed(history) if m["role"] == "assistant"), "")
+    search_text = f"{prev_question}\n{query}" if prev_question else query
 
     # shortcut: 요청 처리 중 동기로 다운로드(시간당 1회, 1~2초), 트래픽이 늘면 백그라운드 갱신으로 전환
     if time.time() - last_loaded > RELOAD_SECONDS:
@@ -241,7 +263,7 @@ async def chat_endpoint(request: ChatRequest):
 
     # 1. 임베딩 생성
     try:
-        query_vec = query_embedding(query)
+        query_vec = query_embedding(search_text)
     except Exception as e:
         resp = StreamingResponse(iter([f"임베딩 에러: {e}"]), media_type="text/plain")
         resp.headers["Access-Control-Allow-Origin"] = "*"
@@ -264,10 +286,10 @@ async def chat_endpoint(request: ChatRequest):
                     movie_data["reviews"] = related_reviews[:, 3].tolist()[:3]
                 candidates.append(movie_data)
         
-        # 3. 키워드 검색 (보완)
+        # 3. 키워드 검색 (보완): 질문 또는 직전 답변에 나온 제목 ("그 영화 줄거리는?" 대응)
         for movie in movies:
             # 단순 포함 여부 체크 (중복 제외)
-            if movie["제목"] in query:
+            if movie["제목"] in query or movie["제목"] in prev_answer:
                 # 이미 candidates에 있는지 확인 (제목 기준)
                 if not any(c["제목"] == movie["제목"] for c in candidates):
                     movie_data = movie.copy()
@@ -283,7 +305,7 @@ async def chat_endpoint(request: ChatRequest):
 
     # 4. 스트리밍 응답 반환
     resp = StreamingResponse(
-        generate_ai_response_unified(query, candidates),
+        generate_ai_response_unified(query, candidates, history),
         media_type="text/plain"
     )
     resp.headers["Access-Control-Allow-Origin"] = "*"

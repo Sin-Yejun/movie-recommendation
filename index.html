@@ -12,29 +12,40 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/12.2.0/markdown-it.min.js"></script>
     <script>
+      // 대화 기록: 서버는 대화를 저장하지 않으므로 매 요청에 함께 보냄 (서버가 최근 턴만 잘라서 사용)
+      const chatHistory = [];
+
+      function scrollToBottom() {
+        const chatWindow = document.querySelector(".chat-window");
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+      }
+
       async function sendMessage() {
-        // 상대 경로 사용 (배포/로컬 모두 호환)
         const url = "https://movie-recommendation-server-ajob4uxiyq-du.a.run.app/chat";
-        const message = document.getElementById("message").value;
-        const responseContainer = document.getElementById("response");
-        const recContainer = document.getElementById("recommendations"); // 추천 영화 컨테이너
+        const input = document.getElementById("message");
+        const message = input.value.trim();
+        const thread = document.getElementById("response");
 
         if (!message) return;
 
         // 버튼 비활성화 (중복 클릭 방지)
-        const submitButton = document.getElementById("submit-button"); // Assuming an ID for the submit button
+        const submitButton = document.getElementById("submit-button");
         submitButton.disabled = true;
         submitButton.style.opacity = "0.5";
         submitButton.style.cursor = "not-allowed";
 
-        // 로딩 표시: 답변 영역에 표시
-        responseContainer.innerHTML = `
-            <div style="text-align: center; color: #94a3b8; margin-top: 20px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                <p>AI가 답변을 생성하고 있습니다...</p>
-            </div>
-        `;
-        recContainer.innerHTML = ""; // 이전 추천 초기화
+        // 첫 질문이면 안내 문구 제거 후, 질문 말풍선 + 답변 영역 + 추천 카드 영역을 대화 끝에 추가
+        thread.querySelector(".empty-state")?.remove();
+        const userBubble = document.createElement("div");
+        userBubble.className = "user-msg";
+        userBubble.textContent = message;
+        const responseContainer = document.createElement("div");
+        responseContainer.className = "ai-msg";
+        responseContainer.innerHTML = `<p style="color: #94a3b8;"><i class="fas fa-spinner fa-spin"></i> AI가 답변을 생성하고 있습니다...</p>`;
+        const recContainer = document.createElement("div");
+        thread.append(userBubble, responseContainer, recContainer);
+        input.value = "";
+        scrollToBottom();
 
         const md = window.markdownit();
 
@@ -44,15 +55,16 @@
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ input: message }),
+                body: JSON.stringify({ input: message, history: chatHistory }),
             });
 
-            if (!response.ok) throw new Error("Network response was not ok");
+            // 일일 한도 초과(429) 등은 서버가 안내 문구를 본문으로 보냄
+            if (!response.ok) throw new Error((await response.text()) || "Network response was not ok");
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let fullText = "";
-            let isRecPart = false;
+            let answerPart = "";
             let recJsonStr = "";
 
             while (true) {
@@ -66,24 +78,29 @@
                 const splitParts = fullText.split("<<<REC>>>");
 
                 // 1. 답변 부분 (Markdown 렌더링)
-                const answerPart = splitParts[0];
+                answerPart = splitParts[0];
                 responseContainer.innerHTML = md.render(answerPart);
 
                 // 2. 추천 데이터 부분 (아직 전송 중일 수 있음)
                 if (splitParts.length > 1) {
                     recJsonStr = splitParts[1];
                 }
+                scrollToBottom();
             }
 
             // 스트리밍 완료 후 추천 카드 처리
             if (recJsonStr.trim()) {
                 try {
                     const recommendations = JSON.parse(recJsonStr.trim());
-                    renderRecommendationCards(recommendations);
+                    renderRecommendationCards(recommendations, recContainer);
+                    scrollToBottom();
                 } catch (e) {
                     console.error("추천 데이터 파싱 실패:", e);
                 }
             }
+
+            // 성공한 턴만 기록 (추천 JSON은 화면 표시용이므로 제외)
+            chatHistory.push({ role: "user", content: message }, { role: "assistant", content: answerPart });
 
         } catch (error) {
             responseContainer.innerText = "오류가 발생했습니다: " + error.message;
@@ -92,14 +109,11 @@
             submitButton.disabled = false;
             submitButton.style.opacity = "1";
             submitButton.style.cursor = "pointer";
-            document.getElementById("message").value = ""; // 입력창 비우기
         }
     }
 
-    // 추천 카드 렌더링 함수 분리
-    function renderRecommendationCards(titles) {
-        const recContainer = document.getElementById("recommendations");
-        recContainer.innerHTML = "";
+    // 추천 카드 렌더링 함수 분리 (각 답변 아래에 표시)
+    function renderRecommendationCards(titles, recContainer) {
 
         const recTitle = document.createElement("h3");
         recTitle.innerText = "✨ 추천 영화 바로보기";
@@ -349,8 +363,6 @@
                             <p>궁금한 영화나 장르를 물어보세요!<br>"반전 있는 스릴러 추천해줘"</p>
                         </div>
                     </div>
-                    <!-- Recommendations will be injected here via JS -->
-                    <div id="recommendations" class="rec-wrapper"></div>
                 </div>
             </div>
 
