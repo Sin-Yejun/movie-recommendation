@@ -219,9 +219,9 @@ async def generate_ai_response_unified(query, candidate_movies, history):
     """
     try:
         stream = client.responses.create(
-            model="gpt-5-mini",
+            model="gpt-6-luna",
             input=[{"role": "system", "content": system_prompt}, *history, {"role": "user", "content": query}],
-            reasoning={"effort": "minimal"},
+            reasoning={"effort": "none"},  # luna는 minimal 미지원, 추천 답변엔 추론 불필요 (지연·비용 최소)
             stream=True
         )
         for event in stream:
