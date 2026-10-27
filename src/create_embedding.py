@@ -34,18 +34,14 @@ def get_embedding(text):
     if text_hash in embedding_cache:
         return embedding_cache[text_hash]
     
-    # API 호출
-    try:
-        response = client.embeddings.create(
-            model="text-embedding-3-small",
-            input=text,
-        )
-        embedding = response.data[0].embedding
-        embedding_cache[text_hash] = embedding # 캐시에 저장
-        return embedding
-    except Exception as e:
-        print(f"임베딩 생성 실패: {e}")
-        return [0.0] * 1536 # 실패 시 0벡터 반환 (에러 방지)
+    # API 호출 (실패 시 0벡터로 대체하지 않고 중단: 0벡터 인덱스는 검색을 조용히 망가뜨림)
+    response = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=text,
+    )
+    embedding = response.data[0].embedding
+    embedding_cache[text_hash] = embedding # 캐시에 저장
+    return embedding
 
 # 불용어 리스트 (간단 버전)
 STOP_WORDS = set([
