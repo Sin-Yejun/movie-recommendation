@@ -5,6 +5,8 @@
 
 🔗 https://movie.yejunsin.dev
 
+![Filmio 화면: "반전 있는 스릴러 추천해줘"에 대한 답변과 추천 영화 카드](docs/screenshot-chat.png)
+
 ---
 
 ## 🔥 Key Features

@@ -80,7 +80,9 @@
 
                 // 1. 답변 부분 (Markdown 렌더링)
                 answerPart = splitParts[0];
-                responseContainer.innerHTML = md.render(answerPart);
+                // CommonMark는 "**《제목》**을"처럼 문장부호 뒤에 한글이 붙으면 굵게 처리하지 못해 별표가 남음
+                // → 렌더 결과(이미 이스케이프된 텍스트)에 남은 **…**만 <strong>으로 감쌈
+                responseContainer.innerHTML = md.render(answerPart).replace(/\*\*([^*<>\n]+?)\*\*/g, "<strong>$1</strong>");
 
                 // 2. 추천 데이터 부분 (아직 전송 중일 수 있음)
                 if (splitParts.length > 1) {
