@@ -1,13 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Filmio - 영화 추천 플랫폼</title>
+    <meta name="description" content="최신 상영작과 실관람객 리뷰를 바탕으로 AI 큐레이터에게 영화를 묻고 추천받는 곳." />
     <link rel="stylesheet" href="style.css" />
-    <!-- 폰트: Pretendard & Google Fonts -->
+    <!-- 폰트: Pretendard(한글) & Google Fonts(Sofia Sans Extra Condensed, Barlow) -->
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sofia+Sans+Extra+Condensed:wght@200;400&family=Barlow:wght@300;400;600&display=swap" rel="stylesheet">
     <!-- 아이콘: FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/12.2.0/markdown-it.min.js"></script>
@@ -41,7 +42,7 @@
         userBubble.textContent = message;
         const responseContainer = document.createElement("div");
         responseContainer.className = "ai-msg";
-        responseContainer.innerHTML = `<p style="color: #94a3b8;"><i class="fas fa-spinner fa-spin"></i> AI가 답변을 생성하고 있습니다...</p>`;
+        responseContainer.innerHTML = `<p class="pending"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> AI가 답변을 생성하고 있습니다…</p>`;
         const recContainer = document.createElement("div");
         thread.append(userBubble, responseContainer, recContainer);
         input.value = "";
@@ -103,6 +104,7 @@
             chatHistory.push({ role: "user", content: message }, { role: "assistant", content: answerPart });
 
         } catch (error) {
+            responseContainer.classList.add("is-error");
             responseContainer.innerText = "오류가 발생했습니다: " + error.message;
         } finally {
             // 버튼 재활성화
@@ -116,9 +118,8 @@
     function renderRecommendationCards(titles, recContainer) {
 
         const recTitle = document.createElement("h3");
-        recTitle.innerText = "✨ 추천 영화 바로보기";
-        recTitle.style.marginTop = "20px";
-        recTitle.style.textAlign = "left";
+        recTitle.className = "rec-title";
+        recTitle.innerText = "추천 영화 바로보기";
         recContainer.appendChild(recTitle);
 
         const cardWrapper = document.createElement("div");
@@ -133,15 +134,16 @@
              const rating = movieInfo["관람객 평점"] || "N/A";
              const audience = movieInfo["관객수"] || "";
 
-             const card = document.createElement("div");
+             const card = document.createElement("button");
+             card.type = "button";
              card.className = "rec-card";
              card.innerHTML = `
-                <div class="poster-wrapper"><img src="${poster}"></div>
-                <div class="card-info">
-                    <h4>${movieInfo.제목}</h4>
-                    <div class="rating"><i class="fas fa-star"></i> ${rating}</div>
-                    <div class="audience">${audience}</div>
-                </div>
+                <span class="poster-wrapper"><img src="${poster}" alt="" width="150" height="225"></span>
+                <span class="card-info">
+                    <span class="rec-name">${movieInfo.제목}</span>
+                    <span class="rating"><i class="fas fa-star" aria-hidden="true"></i> ${rating}</span>
+                    <span class="audience">${audience}</span>
+                </span>
              `;
              card.onclick = () => {
                  const input = document.getElementById("message");
@@ -260,41 +262,38 @@
 
   <body>
     <header>
-      <div id="date-display">날짜 로드 중...</div>
-      <h1>Filmio</h1>
+      <div class="brand">
+        <h1>Filmio</h1>
+        <div id="date-display">날짜 로드 중…</div>
+      </div>
       <div class="cinema-links">
         <a href="https://cgv.co.kr/" target="_blank"
-          ><img src="src/img/cgv_logo.png" alt="CGV"
+          ><img src="src/img/cgv_logo.png" alt="CGV" width="40" height="40"
         /></a>
         <a href="https://www.lottecinema.co.kr/NLCHS?referrer=https://www.google.com/" target="_blank"
-          ><img src="src/img/lotte_logo.png" alt="롯데시네마"
+          ><img src="src/img/lotte_logo.png" alt="롯데시네마" width="40" height="40"
         /></a>
         <a href="https://www.megabox.co.kr/" target="_blank"
-          ><img src="src/img/megabox_logo.png" alt="메가박스"
+          ><img src="src/img/megabox_logo.png" alt="메가박스" width="40" height="40"
         /></a>
       </div>
     </header>
 
     <div class="main-layout">
-        <!-- [LEFT] Side Panel: Movies & Stats -->
+        <!-- 포스터 목록: 화면에서는 채팅 오른쪽(모바일은 아래)에 놓임 -->
         <aside class="side-panel">
             <section class="info-container">
-                <h1>Filmio <span style="font-size: 1rem; color: var(--primary-color);">AI</span></h1>
+                <h2>요즘 뜨는 영화</h2>
                 <p class="subtitle">
-                    AI가 최신 <strong><span id="stat-movies">0</span>편</strong>의 영화와 
+                    AI가 최신 <strong><span id="stat-movies">0</span>편</strong>의 영화와
                     <strong><span id="stat-reviews">0</span>개</strong>의 실관람객 리뷰를 분석해드립니다.
                 </p>
             </section>
 
-            <!-- Slider Moved Here -->
-            <section class="slider-container">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h2 style="font-size: 1.2rem; margin: 0;">🔥 요즘 뜨는 영화</h2>
-                    <!-- Slider controls removed -->
-                </div>
+            <section class="slider-container" aria-label="요즘 뜨는 영화 포스터">
                 <div class="slider-content">
                     <div class="image-gallery" id="image-gallery">
-                        <div style="color: grey; padding: 20px;">로딩 중...</div>
+                        <p class="gallery-status">로딩 중…</p>
                     </div>
                 </div>
                 <!-- ... -->
@@ -326,7 +325,8 @@
                 // 이미지가 없으면 기본값 처리 (필요시)
                 const posterUrl = movie.영화포스터 || "https://via.placeholder.com/200x300?text=No+Image";
 
-                const div = document.createElement("div");
+                const div = document.createElement("button");
+                div.type = "button";
                 div.className = "image-item";
                 div.onclick = () => {
                     const input = document.getElementById("message");
@@ -335,8 +335,8 @@
                 };
 
                 div.innerHTML = `
-                    <img src="${posterUrl}" alt="${movie.제목}" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'"/>
-                    <p>${movie.제목}</p>
+                    <span class="poster"><img src="${posterUrl}" alt="" width="200" height="300" loading="lazy" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'"/></span>
+                    <span class="image-title">${movie.제목}</span>
                 `;
                 gallery.appendChild(div);
             });
@@ -348,7 +348,7 @@
     </script>
         </aside>
 
-        <!-- [RIGHT] Chat Panel -->
+        <!-- 채팅: 화면의 주 작업 영역 -->
         <main class="chat-panel">
             <div class="chat-header">
                 <h2>AI 영화 큐레이터</h2>
@@ -357,9 +357,9 @@
 
             <div class="chat-window">
                  <div class="response-container">
-                    <div id="response">
+                    <div id="response" aria-live="polite">
                         <div class="empty-state">
-                            <i class="fas fa-film" style="font-size: 3rem; margin-bottom: 1rem; color: #334155;"></i>
+                            <i class="fas fa-film" aria-hidden="true"></i>
                             <p>궁금한 영화나 장르를 물어보세요!<br>"반전 있는 스릴러 추천해줘"</p>
                         </div>
                     </div>
@@ -371,11 +371,12 @@
                     type="text"
                     id="message"
                     name="message"
+                    aria-label="영화에 대해 질문하기"
                     placeholder="ex. 이 영화 평점 어때? / 가족이랑 볼만한 영화 추천"
                     required
                     autocomplete="off"
                 />
-                <button type="submit" id="submit-button"><i class="fas fa-paper-plane"></i></button>
+                <button type="submit" id="submit-button" aria-label="보내기"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
             </form>
         </main>
     </div>

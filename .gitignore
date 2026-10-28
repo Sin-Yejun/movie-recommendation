@@ -21,3 +21,7 @@ Thumbs.db
 
 # Docker
 .dockerignore
+
+# Tooling (Hallmark design records, Claude Code local config)
+.hallmark/
+.claude/
